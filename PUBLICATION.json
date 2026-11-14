@@ -1,0 +1,1282 @@
+{
+    "version": 1,
+    "sourceCommit": "951aadea212d976081b9b8fce119a81cd48bd0cd",
+    "files": [
+        {
+            "path": ".gitignore",
+            "sha256": "b55bac4e0f230ece6c67c760938ee478747b49c5d2cd5045521e33f1e42e5c55"
+        },
+        {
+            "path": "LICENSE",
+            "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+        },
+        {
+            "path": "README.md",
+            "sha256": "037b559cd9e1521f1542b9340b42a0a770d25aced8b168ff77eb1ae3ec40a379"
+        },
+        {
+            "path": "THIRD-PARTY-NOTICES.md",
+            "sha256": "8c17c70f6ef0ccddb35d12cba05a89d43d1993234132223b16f9fe46d98412f3"
+        },
+        {
+            "path": "assets/admin.css",
+            "sha256": "63a2ec87208c050abac155589520ed4c0d6532d7197c99980ddc4b6c8b8565b7"
+        },
+        {
+            "path": "assets/live.js",
+            "sha256": "f7e5189147b7f2d3e05a96139656ea4b6796231d3159c372a60d66a1775d2f05"
+        },
+        {
+            "path": "assets/restore.css",
+            "sha256": "abadf1614ebac468f5140a56b148208e7cd915e86d14b162b139dd28bf84cfe8"
+        },
+        {
+            "path": "assets/restore.js",
+            "sha256": "35a0319912e5fc9f8f8f88394c50ce846646e9e081b693a26e0dc17a2b8b2e96"
+        },
+        {
+            "path": "bin/LICENSE.age",
+            "sha256": "afbdb4e07a359499db587ae632815809b1fc1670a92d5449af112ce9a67833a2"
+        },
+        {
+            "path": "bin/darwin-arm64/age",
+            "sha256": "4012dfc2725883beafb710894af4f599b7a94f8c8e0f51f02cc96ab8df33915e"
+        },
+        {
+            "path": "bin/linux-amd64/age",
+            "sha256": "eb7dd1b518f0a307c99cd97782623c5321da049154b04acd2d98d21aa7bc9b2c"
+        },
+        {
+            "path": "composer.json",
+            "sha256": "ca7cf0634dd037db29a5cfcc67b4de82915f47b8ab922896e862e755a434a7c5"
+        },
+        {
+            "path": "composer.lock",
+            "sha256": "c6f4eb2b9aaff68776c958c9de47f0f35c1b405f263987395ce8e5272bf0b7a7"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/LICENSE",
+            "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/MYSQL-ON-SQLITE-LICENSE",
+            "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/PROVENANCE.json",
+            "sha256": "81ed304d7866e7c31ca8dd3c3eaf435984239cc4fd94f1d96c45e01b568eca50"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/README.md",
+            "sha256": "ae87457c69cf8b5bf3a551a2b5ceca8ff115b4e079aef3c1e1dc6ac2327407c4"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/activate.php",
+            "sha256": "e79c6bc6439d571956c1ec7da4a9cc3fda0a05390b069a3383a13b7b2fb78fb0"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/admin-notices.php",
+            "sha256": "9c8d049317b1509b894dbc245dbffb2dd2f7c2a55db2f62be06c47200d8f562b"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/admin-page.php",
+            "sha256": "1ecca4e4d24bc72ee67716fbd203230810c266fa4c3e9227767439cc94117333"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/capabilities.php",
+            "sha256": "40e79e5d359eb61e2c71d35b328be7e7b09d5ae6c92bed0341e7849a234c1aec"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/composer.json",
+            "sha256": "9259bfc03d73061a87fe7faf554edddc0077d41e8d0755da522f7497f484409e"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/constants.php",
+            "sha256": "f741a206b334b194e25df9864caeab5625a7b2f7c177b790fe7f2840b9801268"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/db.copy",
+            "sha256": "a5d2ea2b67f50a1ba63e6f90aef45fd0e96ad8ace48e409096be43569dd685a3"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/deactivate.php",
+            "sha256": "bf793248fe9b53c2bd8a094ba91cfabb41e8e4b7c100065fb2686afbf1f90953"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/health-check.php",
+            "sha256": "1038c21d9ee4ce26a71715870f2c81f9079d2f6687ea907fbf943a6b37315034"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/integrations/query-monitor/boot.php",
+            "sha256": "6bd0a492beb2e71953e1ce4a38b8833a1a2ae224edd67daf2867510482e26817"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/integrations/query-monitor/qm3.php",
+            "sha256": "ad32c3617e4761bb567e2c8418c5ec487f78ee199c051235896632e073cafa27"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/integrations/query-monitor/qm4.php",
+            "sha256": "10043fd3c9a6622b3a8d4ecb4b601fb07d77349378445f7ff66edd93f60c80d9"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/integrations/query-monitor/query-monitor-sqlite.js",
+            "sha256": "54dde5671a3a3268ee77a6302d221731da9c2f03d1962d13c3fb3e0edb26e174"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/load.php",
+            "sha256": "9ac78eb4d0c46441e96bcd5be4d250ee15067c7e2fbd44728409ffdc561d9d6e"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/readme.txt",
+            "sha256": "08a827b66a1c8748497666e9dee708ab744e75c03492242a0b6772a4a026d9ff"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/database/load.php",
+            "sha256": "fd4ff0da1114d5ada9674fe134a5de23e42802f8a3641e5358d0343fa8dd0a55"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/database/mysql/class-wp-mysql-lexer.php",
+            "sha256": "b667ea4dad02e5e129c052ec19777c942b8c4f7b281bf99e540fee5800eb9afc"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/database/mysql/class-wp-mysql-parser.php",
+            "sha256": "c0d47924a4935e92fa198eeb2b6045955d00b35e3dc166f8aabff096d4f7d06f"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/database/mysql/class-wp-mysql-token.php",
+            "sha256": "f69946b2aaf2c40c9b9b7b2d34605c73300e6c8b6a266ff5b84f898cabb042c2"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/database/mysql/mysql-grammar.php",
+            "sha256": "bccaeb8e60547416956379edb986bd6d219259c827ed63799d641fe002fbc4c1"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/database/parser/class-wp-parser-grammar.php",
+            "sha256": "cb355e88b06783423fe2b178e7e39deb4b2c4288a25e5f3891f92cae7a349b1a"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/database/parser/class-wp-parser-node.php",
+            "sha256": "d00ee726539c1ff384cabe833a6a1972b7db0af84114e2c7a3c556c2efb0426e"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/database/parser/class-wp-parser-token.php",
+            "sha256": "af5063e88b36c259f9dbfa8d18ca2504135f8cecff55c0c50269e79f83d85d21"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/database/parser/class-wp-parser.php",
+            "sha256": "3c3995cb1749c9a0cb1337e9a6643d940518cbd7cb3d91a3c0f5ba176a310ab4"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/database/php-polyfills.php",
+            "sha256": "0251ca66332a6a63fe3c3c5f08da9faf429144957302f2c18ec0b13dfe9afd7b"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/database/sqlite/class-wp-mysql-on-sqlite-exception.php",
+            "sha256": "0a8ba2bfb935377502b2400c756a37e5b4a29c79a5c12e3f722579fc2bed9000"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/database/sqlite/class-wp-mysql-on-sqlite-statement.php",
+            "sha256": "9c49b86ebbe4f7e7e6eae5a88a78b8abb88fea39338304dd40de3c3e7d247989"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/database/sqlite/class-wp-mysql-on-sqlite.php",
+            "sha256": "75a2cc74098b04ab96207c96b90f575ee22c540e23351cac99a72fa35267179f"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/database/sqlite/class-wp-sqlite-configurator.php",
+            "sha256": "391f21a2c31679a816d4df9661f2a0b708d0b79b92fa589f3e4b00a588435cd7"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/database/sqlite/class-wp-sqlite-connection.php",
+            "sha256": "374661a17afcbf34b2e9909e179ccb46f6a80a1123c091b8c540a3e9cdbc6d6b"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/database/sqlite/class-wp-sqlite-driver.php",
+            "sha256": "e530929848f6f3e63bcefd1c5d2c7615f842ea0a36126d924b199797a9cfbb34"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/database/sqlite/class-wp-sqlite-information-schema-builder.php",
+            "sha256": "532ee5a299effbcd5abf3b70c2e7a3074150a4f57222eae8eb707d4a457f239a"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/database/sqlite/class-wp-sqlite-information-schema-exception.php",
+            "sha256": "27697f94c63dba2ec1c2ddad020a2001bc3cd51cae019e1da0b67cfc42096899"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/database/sqlite/class-wp-sqlite-information-schema-reconstructor.php",
+            "sha256": "125f020dbb6ea4f12b047f5b76c76b7c94565538178996b8cf1be48f2bf745f7"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/database/sqlite/class-wp-sqlite-pdo-user-defined-functions.php",
+            "sha256": "aa72d86e254554a40524df756ce390cc7ec18ed13321d495c66abe9ae74b07ec"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/database/sqlite/trait-wp-mysql-on-sqlite-pdo-compat-php-84.php",
+            "sha256": "bc4160590270abd6b50a8c54e62c14662f1008f609538848e883248fcecf7735"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/database/version.php",
+            "sha256": "981ae862f4d56be8f88e5a4ce486eb90a7d95206c6cbd5042aa550f2c9f3868e"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/sqlite/class-wp-sqlite-db.php",
+            "sha256": "b5588e710d0c08c87038f87319d6ec48fd61ee046681a7b1a2e453491b8f09db"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/sqlite/class-wp-sqlite-storage.php",
+            "sha256": "f66362e5f2ffeb257de7c8ed9e5427fd9306d66d1d3b72aaf19087fed1d4f8bc"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/sqlite/db.php",
+            "sha256": "db5f5b9b4bcbcf38dfb8baeefa8155a1f1fb96b77c90083a619524fbae9f9d42"
+        },
+        {
+            "path": "dependencies/sqlite-database-integration/wp-includes/sqlite/install-functions.php",
+            "sha256": "5c90a66736a1df9eba8d969b57269f54d86a0b0406798b332a69bb486f9d6827"
+        },
+        {
+            "path": "docs/format-and-design.md",
+            "sha256": "e85aa6422e9b127a1fb8ad8ab35ffa8d7dbb1aa9fc2aa8878587c25fe8955f79"
+        },
+        {
+            "path": "docs/v4-format.md",
+            "sha256": "e3c81b2cf4501a14a0f578b37870eaa1e5f6b599258c0d289a37400befcfb57d"
+        },
+        {
+            "path": "local-router.php",
+            "sha256": "8a6752ff53526066dc2114dd1575fe8e040c855e2773057bc96e53b51754a0e5"
+        },
+        {
+            "path": "phpunit.xml",
+            "sha256": "4dbf131a04352a2baa5b0379e9ed30bbb01ad8a5327bf8009a623dbac4b0fea3"
+        },
+        {
+            "path": "recovery/README.md",
+            "sha256": "95ac79e99bebbbf4dfdd843b1ac58962d7d7f909639fe117e4a890f56ad75f98"
+        },
+        {
+            "path": "recovery/build-kit.php",
+            "sha256": "8c159f2dd103d8ecdb7b23d51e9f0989195c7a7cc22e18c2e62c7fe0e4ed41ec"
+        },
+        {
+            "path": "recovery/recover-web.php",
+            "sha256": "4cb681a4d6bb8ab9a65f8a52594060c68a429ae85befe72791dcd61c12db84c3"
+        },
+        {
+            "path": "recovery/recover.php",
+            "sha256": "ae8cd1a3137af2b86bb5795c230fd6f2f651c758633a793d8bf9cd6098cda263"
+        },
+        {
+            "path": "restore-worker.php",
+            "sha256": "545b75844d18d6e806a3ab795776bf96355d126d3e6975736c08858d1e384394"
+        },
+        {
+            "path": "schedule.php",
+            "sha256": "9c2990f934d3e9b6df78ff10e23acf9b6c446057b9f3d3696c06f373a6298791"
+        },
+        {
+            "path": "src/AgeBinary.php",
+            "sha256": "49acb3bbdf4b93901d502ab74015b40aaa7a9b4525d5825819d020372d015f6f"
+        },
+        {
+            "path": "src/AgeProcess.php",
+            "sha256": "d2288e1789c79a7f1c70a3dd3124e898d7df9424aa66691532ab873ef0b01208"
+        },
+        {
+            "path": "src/ArchiveRestorer.php",
+            "sha256": "e8dbcb66f9466fbe5699020a6daa060baf670da8a5ef55c1287baf4bb1efc3e7"
+        },
+        {
+            "path": "src/BackupArchive.php",
+            "sha256": "b22116383bdff89d96792354929bae8d19b458ce0a6a943141b54875b51b2da8"
+        },
+        {
+            "path": "src/BackupSchedule.php",
+            "sha256": "be2d3851d17368b1c915baa5279932704707e45932565ea9d9735e13d37d2179"
+        },
+        {
+            "path": "src/BackupScheduler.php",
+            "sha256": "4c8a885dbff7a6253379e5b7653d4e8cb98613ba01b54ac34811acdfe061520c"
+        },
+        {
+            "path": "src/CaptureControlException.php",
+            "sha256": "21ab65bba7d6dc5ff8813816d4b6bd487189a63689d2759bdb1f3bb84724604a"
+        },
+        {
+            "path": "src/CaptureJob.php",
+            "sha256": "cc81aae0438681982c5daa6a6d9f9e93a53fb6f3f1de6ccf9415e13bec025e75"
+        },
+        {
+            "path": "src/CaptureReport.php",
+            "sha256": "1a57c47693efd3452645bc8c9a53ccc43b803e8bca2083ac2771e8eeacae3782"
+        },
+        {
+            "path": "src/DedupIndex.php",
+            "sha256": "8b848f3dcc76dd05a0515af89da70f2dc8d0b0093398dd2eef1304927c64f08b"
+        },
+        {
+            "path": "src/DirectR2Repository.php",
+            "sha256": "2b3bb84ae87058ccb7d3273a5fe705aeefcd5c6f7b11e04c0e79058754a77c2c"
+        },
+        {
+            "path": "src/FileSafety.php",
+            "sha256": "5b58161798d7d98610974075f18d67805eff9de389d5acf3c6618b67cb3e735a"
+        },
+        {
+            "path": "src/LiveAdmin.php",
+            "sha256": "de97b5904c3c5becd3ea57ace06bbc8c3567faaa2a1fb517628a21d6d9a446bf"
+        },
+        {
+            "path": "src/LiveAdminView.php",
+            "sha256": "95c7c2c516f3c8995cf619d214318e123f81c09e0b7a6b29d6e779d8183957a0"
+        },
+        {
+            "path": "src/LiveBackup.php",
+            "sha256": "abcd4f59c96338bb34587c07f7dbb332cc6bcb0071cbd3d8ddb6b7ab30b28171"
+        },
+        {
+            "path": "src/LiveMediaAudit.php",
+            "sha256": "7a8b8f1cfcff24f029626f486706c3733e932a6381e13d63e554cf24b6cb580f"
+        },
+        {
+            "path": "src/LiveRunner.php",
+            "sha256": "d33ccd26797f728d6599f8e4724d50b7d08819a2ef5a69824bd7152ec2f0cc4e"
+        },
+        {
+            "path": "src/LiveSettings.php",
+            "sha256": "d2c413fdad4edda7d782dca76871084a3c864dd4ac9339e7b4913a482eb83bb7"
+        },
+        {
+            "path": "src/LocalRepository.php",
+            "sha256": "67dd7c9fb7dac0617c75862ab2021b62c5de53be84af8225f21708535f9c7480"
+        },
+        {
+            "path": "src/LocalSiteServer.php",
+            "sha256": "c4fd3347eef38ceb8e28aa89d9c2504819b46bde0797c0963079b6d7ce90c4d8"
+        },
+        {
+            "path": "src/ManagedCapture.php",
+            "sha256": "72f95b00cb1d53ac23b642776d2a6105e22c3d75c6e6ea855f6c0ab61f7ffd03"
+        },
+        {
+            "path": "src/Manifest.php",
+            "sha256": "03606f0c97cc3d57abd02513c6ae0b7f3ae12ea247fdb599f3dd3299d249f742"
+        },
+        {
+            "path": "src/MetadataMap.php",
+            "sha256": "58297da45a0dd85f6d46717fc825d1026b1d6252ef4e16ce6e208b02b99860de"
+        },
+        {
+            "path": "src/MysqlClient.php",
+            "sha256": "25f314162d0ea81eb0372f66b32cd79d092ddcfd360c19df4f62927afd2b6e23"
+        },
+        {
+            "path": "src/MysqlRowCursor.php",
+            "sha256": "8758faca5df8130ae21364613bfe2b57794b3634cb8b73dc9efca06ad847d9d1"
+        },
+        {
+            "path": "src/MysqlSiteSetup.php",
+            "sha256": "c97d613fb80a56769ae8a7ac62fbf729febdc3c9116cd6314a3463104087868a"
+        },
+        {
+            "path": "src/ObjectReader.php",
+            "sha256": "1a6ba2bec8cc46b5ce605d9ef92b56397960b2064988a9d05ffa52ba4d39cd80"
+        },
+        {
+            "path": "src/ObjectWriter.php",
+            "sha256": "0eccdb0f01bcbb05ed1c10be51f8931037f641885adc44961c1747065c7ac786"
+        },
+        {
+            "path": "src/PrivacyPolicy.php",
+            "sha256": "d0280640c54c4d02781d449c123dcf0be7d239404ba7218448ac6c9c6b25b9d2"
+        },
+        {
+            "path": "src/R2Reader.php",
+            "sha256": "d50253ff21f5bcff989388707a7ce6925001e7b9fcbe8d528d1a98162346e11c"
+        },
+        {
+            "path": "src/R2TransportException.php",
+            "sha256": "aaefb47106f06dcc4bcb5e99ae6a36668cf58b9bd4c645523e7d2363a75aba33"
+        },
+        {
+            "path": "src/RecoveryDatabase.php",
+            "sha256": "8e05dc0e397dc19c9e0e40af7edc8a63b4f6f3635a00ae4a9c75a16a7f8e6ae9"
+        },
+        {
+            "path": "src/RecoveryMetadataMap.php",
+            "sha256": "fb2bcb68bcd06645e806213c696faf563598787f5844548c4337ea8e6aabb6f2"
+        },
+        {
+            "path": "src/RestoreApi.php",
+            "sha256": "41a80ffe50aa59937bfee7c38f7c1a72dd24effb38823a2dc23961d1791de169"
+        },
+        {
+            "path": "src/RestoreError.php",
+            "sha256": "dc65752bc6bac67007520c29f220bafd75aa19145ce47abe7b2f2254204ba9e5"
+        },
+        {
+            "path": "src/RestorePage.php",
+            "sha256": "53e24a2b6e183c6c8299fb6809c15393f4b01b5009392a34a448565c859f0b0b"
+        },
+        {
+            "path": "src/RestorePlan.php",
+            "sha256": "5f536483f0bd3c15e5ed0396ba02f568adc0a663c7c9dfca9477c84cd5059cc2"
+        },
+        {
+            "path": "src/RestoreService.php",
+            "sha256": "0546fcf29ec9b5bc2ae893c2c1946d347600636b69d5d2af3b25e06ea3f398a8"
+        },
+        {
+            "path": "src/RestoreWebAuth.php",
+            "sha256": "d2a5c42d881707726155b0b96b9d49f29dc0c936a1eb3613e6a86f03b9d97c0e"
+        },
+        {
+            "path": "src/RestoreWorker.php",
+            "sha256": "38726a538750023103c50b576f388a8078876a0ebebe011aa1bd92aab8a57e46"
+        },
+        {
+            "path": "src/RestoredSiteCheck.php",
+            "sha256": "69d8a43ef25df21db5204fa948a223972d0ab38447b92a6685d172ef860952bc"
+        },
+        {
+            "path": "src/Restorer.php",
+            "sha256": "b081ee16aba99ff6d218eaa0e4cbdd345596cc82306c8dcdbfcdf24575fe9246"
+        },
+        {
+            "path": "src/RunningSiteFiles.php",
+            "sha256": "9560c75f2af8b5c7e8176039de3a8c1931fe0c46b63fe5928e9c43c66f474dc8"
+        },
+        {
+            "path": "src/SiteUrlRewriter.php",
+            "sha256": "14f1963ba7f73957f97673c5ed1832efbd54972e480087ec5e3bc9c3acf35df9"
+        },
+        {
+            "path": "src/SnapshotWriter.php",
+            "sha256": "97f20f0a575380299de04124c2092f243007b03805138aac918a284cb9211fe7"
+        },
+        {
+            "path": "src/SourceRebuilder.php",
+            "sha256": "510238d524ee911f248b23a0e9c2de6771e8e174debadd357d0086a3f8adc842"
+        },
+        {
+            "path": "src/SourceRoots.php",
+            "sha256": "7633e286fa9db19a4d88be81c4d96be38643c5d15c37e8dee0dffcb701fd7466"
+        },
+        {
+            "path": "src/SqliteDatabaseClient.php",
+            "sha256": "152c84a3f8e4907c1a2b78c4fed9f4e7d4e4d82f3b2bbef0431bb53f8e1c40ee"
+        },
+        {
+            "path": "src/SqliteSiteSetup.php",
+            "sha256": "c31d621cb550174eb1f6bb00d0556eee3476b91ec59c8657b2734ff9ce106049"
+        },
+        {
+            "path": "src/SyntheticAdmin.php",
+            "sha256": "610ac46b8e04d09dc6b12718e01eb2602cb35706ec9111e0b2870f7061db1e52"
+        },
+        {
+            "path": "src/SyntheticAdminRuntime.php",
+            "sha256": "d14665c67730ed4cb6be9698a6eb478b22f6853bea7799b47020af31701dbb96"
+        },
+        {
+            "path": "src/SyntheticCapture.php",
+            "sha256": "c36224047c93b6d120d4c0ef8ca0fb55d80e92d6a29f29ae49b1ba6db5fc6c61"
+        },
+        {
+            "path": "src/SyntheticFileSource.php",
+            "sha256": "1bc03d9698950f249416cc9b1d55022d974a48aa8ad01fc8b5f441df4b6217ce"
+        },
+        {
+            "path": "src/SyntheticHttpRepository.php",
+            "sha256": "50fde1f07492839b42649f1afd726eff65b9cf52d7021bf7f538f9544a2d9dfb"
+        },
+        {
+            "path": "src/UnitLedger.php",
+            "sha256": "36cb788ae3e5cc960e7347cb1976c2e649f0883412c95e8d2c994535698c39dd"
+        },
+        {
+            "path": "src/UnsupportedOnlineDatabaseEngine.php",
+            "sha256": "70e22fea4f5fc018a195cedaa6a43ef2e1ddeac47ce0230ea97276015eb8919f"
+        },
+        {
+            "path": "src/V4Capture.php",
+            "sha256": "b9735d45e8352a5b70f14503f43f9a78c0e76fad175213bec5ff5b8e62a5d171"
+        },
+        {
+            "path": "src/V4ContentIndex.php",
+            "sha256": "3f3ff7515fc3ab3138a73dab36cc5e46333eff7ac5e5e429e5fc50de273c5e41"
+        },
+        {
+            "path": "src/V4ContentStore.php",
+            "sha256": "5fb123241f489214a36a609a334b76c64709c872e7e7158730bfa93cb354f184"
+        },
+        {
+            "path": "src/V4Format.php",
+            "sha256": "b90a273c8f4e0dc564cf8447fb5538eade12fe3b8e80e545016b6a34e75c2a1f"
+        },
+        {
+            "path": "src/V4IndexRebuilder.php",
+            "sha256": "46bc2db179a2adab2c312c4661129e9507a1a72c32ccd1e621e70100f61efdcb"
+        },
+        {
+            "path": "src/V4Pack.php",
+            "sha256": "dc17c46b6bdf9a026052c259dc68ce545787be97d5a98d162de0b797f93284e3"
+        },
+        {
+            "path": "src/V4Pages.php",
+            "sha256": "9fbf9a828fb66e388da3d0ed42bf3d1aceb4587d3c3b179802a670e17f4538bd"
+        },
+        {
+            "path": "src/V4Restorer.php",
+            "sha256": "0e3ce10149ff5e8d6318a7a946bdeececb165b1e2d6ee0abb6bd1dfd01f8ef3a"
+        },
+        {
+            "path": "src/WordPressAdmin.php",
+            "sha256": "c67bb92357a980d6fea0a190e9ad0f5a81ad951951d52098a93c7d74838e031f"
+        },
+        {
+            "path": "src/WordPressDatabase.php",
+            "sha256": "fe609c5aaa2084bca90f43bce59c71621e1c585c00bbf1f99bcedf40c877ed3d"
+        },
+        {
+            "path": "src/WordPressMediaAudit.php",
+            "sha256": "aab6a8e3edaab964c1d914ed361a4c451db224fed7d75febd378333a1fbd18a5"
+        },
+        {
+            "path": "src/WordPressPolicyContext.php",
+            "sha256": "5aca9600df1e695feb02dd5ea83620f6f5e9de7c9c5ce7b805a6779792b1f276"
+        },
+        {
+            "path": "src/WordPressRestoreAdmin.php",
+            "sha256": "bd63de34871c115e4f194ae6e1ff25675f8956d678ae4a9dbb02fb9a803afe97"
+        },
+        {
+            "path": "src/WordPressSource.php",
+            "sha256": "0df6960c5ff8b4fa2abfe193f3ecf28743cfbdf3d47d16da7a6e876c21d78084"
+        },
+        {
+            "path": "tests/AgeProcessTest.php",
+            "sha256": "a3e864ee6fbae08c0a9b1ab0a9fd4b3bffbf146c792377db53b140f9d2e659a2"
+        },
+        {
+            "path": "tests/ArchiveRestorerTest.php",
+            "sha256": "842b81a81d78dbc10e5ec5ec8cf54fac6f58c88650a0329a86c6dff228f4c229"
+        },
+        {
+            "path": "tests/BackupArchiveTest.php",
+            "sha256": "e3eb185f226f358da2c2334682a7c0fd11d037f52a82a50871e48abac4e9bab6"
+        },
+        {
+            "path": "tests/BackupScheduleTest.php",
+            "sha256": "3ef8ec671ccd6604b701214cdba7dbd91dab15de86de30c842720002078eded8"
+        },
+        {
+            "path": "tests/BackupSchedulerCliTest.php",
+            "sha256": "57facd1c713e7662fc602227dc227ac8cb5824809b13f30095e8061683974bac"
+        },
+        {
+            "path": "tests/BackupSchedulerLaunchIntegrationTest.php",
+            "sha256": "bbb45ed38b248c4c9d8c7aeb6eb1fd2abdc570e09a19c292ee93bdfbaabef4fd"
+        },
+        {
+            "path": "tests/BackupSchedulerReleaseIntegrationTest.php",
+            "sha256": "2da1dc44e72015d28180e68dc180dcab368bdf15443ca0d92938a9567a43c67e"
+        },
+        {
+            "path": "tests/BackupSchedulerTest.php",
+            "sha256": "8ed0efd25671e25db375aaf2a13ba5d0536817fb9220553911acc35a22e373b7"
+        },
+        {
+            "path": "tests/CaptureInspectTest.php",
+            "sha256": "6adc4785c30d802ca92fcac960cbae0c6c5405a989d88f2cb629619be1fc427b"
+        },
+        {
+            "path": "tests/CaptureMeasurementTest.php",
+            "sha256": "5d3de2c6f701317f8c150b09130a3187660565ddeacdee41061b0f1486f1f2f1"
+        },
+        {
+            "path": "tests/CaptureProgressSnapshotTest.php",
+            "sha256": "ecd764333f37bee4f7eadf96cea6fa9a89d7d403e5c9a4eabf1edad56f330110"
+        },
+        {
+            "path": "tests/CaptureReportRecoveryKitTest.php",
+            "sha256": "424925c3774a88ebce7696b56af908bbc459e59fe5bb70b2dcb5309b57f9c9f3"
+        },
+        {
+            "path": "tests/CaptureReportTest.php",
+            "sha256": "34f3ec09a0b5ca3e90f5bd0669be61d88e42a952a5a4c81fc539b3b1dc2ac114"
+        },
+        {
+            "path": "tests/ContentStoreHeartbeatTest.php",
+            "sha256": "c122fa8ed1a9ad13648bad675b487360151f076f4e3429a4948ac3d5865594bc"
+        },
+        {
+            "path": "tests/ContractTest.php",
+            "sha256": "670416dd07fc9b4fa2691852151ff82184734205666ea1f34807984a30ae05d0"
+        },
+        {
+            "path": "tests/CurlConnectionReuseTest.php",
+            "sha256": "d44fb6ef567a19323be48b34930fe664be751be7df40336f0af794f3af5e7111"
+        },
+        {
+            "path": "tests/DatabaseDefinitionFingerprintTest.php",
+            "sha256": "75af6ebc22145a6ab9a7fa37251e714675de948eebcad9e4d15664a2b6970546"
+        },
+        {
+            "path": "tests/DatabaseRoundTripTest.php",
+            "sha256": "f26e0db4ef067a326dd6d5aa2ca945cd448defd8ef468ed26b91a95c39800327"
+        },
+        {
+            "path": "tests/DeduplicationTest.php",
+            "sha256": "a07381ee55974c6e5f78d6987bdaa49a557f6c396cf2e98b633477d99042e28d"
+        },
+        {
+            "path": "tests/DirectR2RepositoryTest.php",
+            "sha256": "048d9128989813169d2255d9f661e866ecb06293a835d321faf42443a759502d"
+        },
+        {
+            "path": "tests/DirectR2TransportRetryTest.php",
+            "sha256": "1df7c686770f18588d4aa11298475c74f05f4f6f87a74369e042afd25f950201"
+        },
+        {
+            "path": "tests/DualDatabaseRecoveryTest.php",
+            "sha256": "2726eebba48b23d77c3351c18f5b58422d5b8da60e290888b193813679f3b450"
+        },
+        {
+            "path": "tests/FileSyncTest.php",
+            "sha256": "137d2eb2ae044d269d81bc32b3e127e5547ffb7068e94b921f8b18b10bb1d16b"
+        },
+        {
+            "path": "tests/Fixture.php",
+            "sha256": "c5d589eaa5117abd0ea3cf148c2105cad5400a6155c2cd890b52db38d2d0e73c"
+        },
+        {
+            "path": "tests/IsolatedMysql.php",
+            "sha256": "3a2add82f9732ef03cf66f92ce028fd649c4904ca9c2390b6c113ad9dae67029"
+        },
+        {
+            "path": "tests/IsolatedMysqlRuntimeTest.php",
+            "sha256": "c4a17af9deedada7b6a764a648ac32ef1b1c5705ad3efa4278956547db1c24d9"
+        },
+        {
+            "path": "tests/IsolatedObjectServer.php",
+            "sha256": "13a57609b10bb0687f7fc9653a1ee33589ca15b0654fe5f067918242eda5eec2"
+        },
+        {
+            "path": "tests/IsolatedR2Service.php",
+            "sha256": "d7ffa6d9b5a12e5ef7b61fe72bdad88349640fb87c380501ad5aba6ddc950a55"
+        },
+        {
+            "path": "tests/IsolatedWordPress.php",
+            "sha256": "04b8bcf7c43b7c0585334b5b3e3c460e7c26004f9d590bbbbbb3a89932ca6cb7"
+        },
+        {
+            "path": "tests/LiveBackupCacheTest.php",
+            "sha256": "428b21b1c15acf7819fd644109fc0f5a4b559d5192ab74da252431f54b121af3"
+        },
+        {
+            "path": "tests/LiveBackupStateTest.php",
+            "sha256": "9977fcc55ad8e610a093582219de51f25532e635eee52feafefe8b6adb5c6a55"
+        },
+        {
+            "path": "tests/LiveBackupV4Test.php",
+            "sha256": "ef412fd9c37c8079620b6fe143b89be69780983bed9d4199ac5691d797eb8dd2"
+        },
+        {
+            "path": "tests/LiveIntegrationTest.php",
+            "sha256": "8123dc31feba3a890302a118c83e690398b2cb64b027c5506c804139adb0e02e"
+        },
+        {
+            "path": "tests/LiveMaintenanceExpiryIntegrationTest.php",
+            "sha256": "6d71fc80a837eefbd9f59925c2439f2dad166d1a96b278300e64bcf3ee7d87a9"
+        },
+        {
+            "path": "tests/LiveMediaAuditTest.php",
+            "sha256": "595909ba73b5af9a91f0492c60e011450e933e2c3452b6878e8c5b3d14d19563"
+        },
+        {
+            "path": "tests/LiveModeTest.php",
+            "sha256": "c7fe8388cdd4888f341d6f2053481bb4f383ae67a0a8551df9f8b9d7486d32de"
+        },
+        {
+            "path": "tests/LiveOnlineBackupIntegrationTest.php",
+            "sha256": "d791ccf19d7a98882f2641d5572fa9fc3707f5e8ae6d3575228cba88af632bf6"
+        },
+        {
+            "path": "tests/LivePluginActivationIntegrationTest.php",
+            "sha256": "5ebd9ed6b30a931ea2c9249ac41a07d35c78cee233d14a6532cf8a83b2afc6d2"
+        },
+        {
+            "path": "tests/LivePrivacyUiTest.php",
+            "sha256": "b71b8fcef4e3f1bd8929743800f87a590055d7f2c86b4e872d01a63233280d7d"
+        },
+        {
+            "path": "tests/LiveProgressAjaxIntegrationTest.php",
+            "sha256": "5d59a649cfd9d1cf90a4bbb01272ba8a242dd56c42c1f9cf2f102ba3cc3dfdf4"
+        },
+        {
+            "path": "tests/LiveProgressScriptTest.php",
+            "sha256": "664572b3bcf6ab29aade08a2fe3cfb5d8963dc64120a4f374a06cd945c7c1f94"
+        },
+        {
+            "path": "tests/LiveProgressViewTest.php",
+            "sha256": "684decac15499df30fe8eed4940fd5f517692d12c7c99f433aa95af3cd73aa29"
+        },
+        {
+            "path": "tests/LiveQueuedTicketTest.php",
+            "sha256": "06af84923aaf302cddd7d04f5d07841039b82de71e6982db4a202739e267f329"
+        },
+        {
+            "path": "tests/LiveReusedPackBatchIntegrationTest.php",
+            "sha256": "18c5a9a344f2bc02b38dbcc3e9ef9ca4389dcc6a6c8db51238790e630e2cb755"
+        },
+        {
+            "path": "tests/LiveRunnerTest.php",
+            "sha256": "5c7d37b88baef6ed3b8c223b0c1209c95e0dec75f361c9e6d9dc9c6f7de6d144"
+        },
+        {
+            "path": "tests/LiveScheduleSaveIntegrationTest.php",
+            "sha256": "58523db16e2219256c23133821181ea72a9c331987be69919995a5f46c6e0d43"
+        },
+        {
+            "path": "tests/LiveSettingsRaceIntegrationTest.php",
+            "sha256": "69775fcc39d98b37752edc1a8ee12669bf0bcc5e3f479346adc86e69228c87e0"
+        },
+        {
+            "path": "tests/LiveSettingsTest.php",
+            "sha256": "40a2a047a0d6439ccd0ae6e0a753d779f957cf36578d807e5b2ebe54151381e9"
+        },
+        {
+            "path": "tests/LiveSharedPackTransferTest.php",
+            "sha256": "48cd0c66e428508e62a04e91dc90503fbc829929f78fea7990a0b7233cf83387"
+        },
+        {
+            "path": "tests/LiveSharingTest.php",
+            "sha256": "c876f09065d39ad0c82360110c19424a2fa802e0a16762991c7bd626ca9516e2"
+        },
+        {
+            "path": "tests/LiveV4CaptureMapIntegrationTest.php",
+            "sha256": "52f44f6186b8791fbd47d62672d909a0f9071744fa4e34530d0a834d25aa8cdc"
+        },
+        {
+            "path": "tests/LiveV4LifecycleIntegrationTest.php",
+            "sha256": "d1e7b1beacf3d2a05311265fb781117e6bc3c71ad5e19b4234605474268c26fc"
+        },
+        {
+            "path": "tests/LiveWorkerDispatchTest.php",
+            "sha256": "8bb50c0d991cebe97b53332ee5014905bf57bdfa663e9d149b85ecea2c751fc8"
+        },
+        {
+            "path": "tests/LiveWorkspaceConcurrencyIntegrationTest.php",
+            "sha256": "1ce0a3070068c8fd1cc6a6233e8193c414947560a4d7df0c9aef53f45cd48b24"
+        },
+        {
+            "path": "tests/LocalSiteServerTest.php",
+            "sha256": "31fe9c789e6fbe1b62e06a48201e0fb74f8fb1d8a21a5457221e61b80c6d7ab9"
+        },
+        {
+            "path": "tests/MaintenanceHeartbeatTest.php",
+            "sha256": "66c7de5f46b211247c35c9889919d261a6d790ce5a6e4ef364676705efcbc0f7"
+        },
+        {
+            "path": "tests/ManagedCaptureTest.php",
+            "sha256": "f1d157a1bd1f5fc4dd9ee82d6118a6665a52ce2f974b9e599792b75bcd71f8f5"
+        },
+        {
+            "path": "tests/ManagedHttpRepositoryTest.php",
+            "sha256": "71d5cbf87ee273f72fa1125639ce226d1494bdd905e7bba2d192a241d26bc614"
+        },
+        {
+            "path": "tests/ManagedPublicationBoundaryTest.php",
+            "sha256": "11050c3d8a2629dc08cc7d7406e415c6dde3402f13bc1c29b234615cfd70c7a6"
+        },
+        {
+            "path": "tests/MemoryR2Transport.php",
+            "sha256": "4f1af12f535cf6d83c131d85bec01457d968134ec1173c73ce2e8d0bf15ceaad"
+        },
+        {
+            "path": "tests/MetadataMapTest.php",
+            "sha256": "8200c9e74b6548d3923b0bfb31666714881739192ff0f501df4065bf432c2c2b"
+        },
+        {
+            "path": "tests/MysqlClientMariaDbTest.php",
+            "sha256": "7ede283b200ab627bf9a602f3d5aeba23f5f7336128cc490ccbc4867cf1fecc1"
+        },
+        {
+            "path": "tests/MysqlClientTest.php",
+            "sha256": "76501890aab8cf86d56a2431b943e586d37a7e5f0f4e9b1cf943a844fcb0b54f"
+        },
+        {
+            "path": "tests/MysqlImportSafetyTest.php",
+            "sha256": "4f92a67a75ff9ebb104336fccbc9cefb6bcef6f3a3b578ea4f6b0afe2053e826"
+        },
+        {
+            "path": "tests/MysqlImporterBoundaryTest.php",
+            "sha256": "b794446ed09b7b054747f387fa5908d2552e577ede0343f9ad53179b8a81789e"
+        },
+        {
+            "path": "tests/MysqlReadLockTest.php",
+            "sha256": "1cda3311f6e2ba006cda31fcf805d976ee9d287bade95040fd1e98f7e9d50725"
+        },
+        {
+            "path": "tests/MysqlRowCursorTest.php",
+            "sha256": "97b0d0e38ace597bc30a8fddba63be929f5823ec36812d8774e1138e666c0fda"
+        },
+        {
+            "path": "tests/ObjectServiceTest.php",
+            "sha256": "10deb515817cf184426b84821a2a6fc6809db24fab2fcda1d8b536c1f14e714a"
+        },
+        {
+            "path": "tests/OnlineCaptureIntegrationTest.php",
+            "sha256": "ba40e36156dc434ca0d53aa0c7df46e247e554aa62f80b1092efa1600ca43df1"
+        },
+        {
+            "path": "tests/OnlineNamedLockProofTest.php",
+            "sha256": "eeff8bbfaec05e51741f1b63204cf39147b5e9a2ccd32aa511c480e5e6345bde"
+        },
+        {
+            "path": "tests/OnlineSnapshotFingerprintTest.php",
+            "sha256": "b6b8b52ee86da5cd59738e196da3ebde8235e5bd4053a06064fb93393e42797a"
+        },
+        {
+            "path": "tests/OnlineSnapshotMariaDb105Test.php",
+            "sha256": "15cfbd34de28c7838cdd5f9adbbf211b1cd8ef56a6fe24dcd6d4a277fd7b7f94"
+        },
+        {
+            "path": "tests/OptionalPolicyTest.php",
+            "sha256": "7dd6b324c17791ca8070e2c1f156dcfeb7f893b2f81b7fd548ee4624014fdd78"
+        },
+        {
+            "path": "tests/PhpCompatibilityTest.php",
+            "sha256": "96965a0a4ea18a3c081a696e0521c673746b6c7cdf8a9d972b986990ba5f1ac4"
+        },
+        {
+            "path": "tests/PrivacyPolicyTest.php",
+            "sha256": "a282e73658bff83c7d4aea87d683f8addc4cccb42171516018807fa8ad377549"
+        },
+        {
+            "path": "tests/PublicContentIntegrationTest.php",
+            "sha256": "a41266f84e8e80cbc1af8326dc251d1df7bd9432cac44d6ac9ee16842dabc209"
+        },
+        {
+            "path": "tests/PublicContentPrivacyTest.php",
+            "sha256": "0a3c8fbd86241cc148e93163bb0245d2f496d8e93b6e88a98bef1ed05655e7f6"
+        },
+        {
+            "path": "tests/PublicationGateTest.php",
+            "sha256": "19f901f9e956085138c3ce63d31466a260515c40322d856858725af0bcb726ee"
+        },
+        {
+            "path": "tests/R2IntegrationTest.php",
+            "sha256": "0fcaaf42f3d968f788f707a48fe02718e5381592f947739e916f9f4c940925d4"
+        },
+        {
+            "path": "tests/R2ParallelPagePutTest.php",
+            "sha256": "513155d1a93e8f5687b1fe97b2cb1bae184b208226bfba83541c4e21c8f5e130"
+        },
+        {
+            "path": "tests/R2ParallelVerifyTest.php",
+            "sha256": "ab687ded2f91a084bd3d52856248cad12cd8b6628f07790c8069c4a8c9a7670b"
+        },
+        {
+            "path": "tests/R2ReaderTest.php",
+            "sha256": "e516871f6d46ed2effab8e271fda1ee4c6ffe15ad53dda5ac8e786bc828e01f0"
+        },
+        {
+            "path": "tests/R2WriterTest.php",
+            "sha256": "584d596351760eeff198745f689c26c578c454e7a172371e82054cc1114eaed2"
+        },
+        {
+            "path": "tests/README.md",
+            "sha256": "672d47a209a520585e0654490eb19e73e6fd54a6f7251d09d9c7e64199b38fa7"
+        },
+        {
+            "path": "tests/ReadLockCallbackSafetyTest.php",
+            "sha256": "918ff172235cac821d8ce6825165d6aa5b7ee6a17046cb27cf8bb44e9b6f96e3"
+        },
+        {
+            "path": "tests/RecoveryKitTest.php",
+            "sha256": "85ba1cb83f24b875123087df3f3a9a72a64c9bffdca293ba9ee0cc0c51316d84"
+        },
+        {
+            "path": "tests/RecoveryMetadataMapTest.php",
+            "sha256": "89fe368df489a9ac6dff147f9f6ff70525e26db110b94d21ec6b562f3f6f4684"
+        },
+        {
+            "path": "tests/RepositoryPortTest.php",
+            "sha256": "81fa3ecfd3f80fb55b056464df8b7390dbca8a761a0ae448f8e2344ccb3d39e8"
+        },
+        {
+            "path": "tests/RestoreConsistencyWarningTest.php",
+            "sha256": "6fa52c37ea2c86d5b5c0235e2138dc7bf12885be00a20275c05c34e40b3d342e"
+        },
+        {
+            "path": "tests/RestoreRealWordPress.php",
+            "sha256": "ecb55a5153ecd7adba41cd8c48cd221dc472259a5459ceccb67db87b1d94c07d"
+        },
+        {
+            "path": "tests/RestoreRealWordPressTest.php",
+            "sha256": "a130ae3acc6ef9a3a0225caa0c37bbb943b48be78ff8de937fed5d56a877edb6"
+        },
+        {
+            "path": "tests/RestoreServiceTest.php",
+            "sha256": "c727d38779690ba0bb0ad505219cd7ccf78daa512d96e1837ee23de3da2deae4"
+        },
+        {
+            "path": "tests/RestoreTestBed.php",
+            "sha256": "99726c36d000e7d875d4ff049d2d90c4c04bd4c998625e4cf26f9fb1f0144517"
+        },
+        {
+            "path": "tests/RestoreWebTest.php",
+            "sha256": "63a1a7cc07ea1819aa4d0d7dc63ef3a407e17183f79e409f34545c84bde3a47c"
+        },
+        {
+            "path": "tests/RestorerTest.php",
+            "sha256": "1294d0700d29c35d693c2bb1344f12d1c2055bc6fb5f836f7cb1cb3dfa9b64c7"
+        },
+        {
+            "path": "tests/RowPrivacyTest.php",
+            "sha256": "40e034dfb5901830a40fce9d3bb1bedd0909e942db971379578c38d565cd3999"
+        },
+        {
+            "path": "tests/SnapshotWriterTest.php",
+            "sha256": "b22f3f6955826daf1693147873ce5d641ef96db308265ef5eeb59e903209fc00"
+        },
+        {
+            "path": "tests/SourceRootsTest.php",
+            "sha256": "87d57b7134a94b4ec08ae03d4ee068db39843c5a650f9f81d600cfc1ce0af500"
+        },
+        {
+            "path": "tests/SourceSwitchTest.php",
+            "sha256": "4584f44264d9bf0515fa19656470b5ebc3395630b45080bba7ad9a208ec1b772"
+        },
+        {
+            "path": "tests/SqliteDatabaseClientTest.php",
+            "sha256": "bfce01a5c8f3c268db05fc52b8e416e7938fbe59ddc1f46f3b7bb084a2c5f448"
+        },
+        {
+            "path": "tests/SqliteSiteSetupTest.php",
+            "sha256": "a2b29189ef5625c550aac519ad9483c2673d7fbb04999ed79f5c2c235aa926bc"
+        },
+        {
+            "path": "tests/SyntheticAdminRuntimeTest.php",
+            "sha256": "137bd740b76087ed60343d0324e9898c4d17a3ff6c164c6bcf053e2edc4f8c1e"
+        },
+        {
+            "path": "tests/SyntheticAdminTest.php",
+            "sha256": "4820d756b94ff3cc9d9ba8a2fc521d5b434bdcd27be2a740785ed5cf975fe7f4"
+        },
+        {
+            "path": "tests/SyntheticCaptureTest.php",
+            "sha256": "02120902f60ff8553aa1c9447ebd00fae51c3a3d354a752c460a2f11e04546c2"
+        },
+        {
+            "path": "tests/SyntheticFileSourceTest.php",
+            "sha256": "50f17256386c2f7b5ad2b8261f05e90fafc978e551a4d44a922885e6f1e8183f"
+        },
+        {
+            "path": "tests/SyntheticHttpRecoveryTest.php",
+            "sha256": "d353c0180e539c557d93f344d678ef58d1defa1145f276cf65995b00ffbb0de6"
+        },
+        {
+            "path": "tests/SyntheticHttpRepositoryTest.php",
+            "sha256": "c26c6727500d23fa36eb8a019bf92be1713b8b10096fc423136c374f9bd8abd0"
+        },
+        {
+            "path": "tests/UnitLedgerTest.php",
+            "sha256": "3edad1c8cb3cc39c28ed6bc935dbc35f25213a054464b7721a33c374f6635605"
+        },
+        {
+            "path": "tests/V4AncestorSelectionTest.php",
+            "sha256": "45f709a3bb0c6121c698e334d15bc3f2bdd84f8e1b46909f0d2563cf5b3b9121"
+        },
+        {
+            "path": "tests/V4CaptureIntegrationTest.php",
+            "sha256": "4cbf5cc135f25e44582f85c1219557b06635ef09c2004f2ced68d430af2e4422"
+        },
+        {
+            "path": "tests/V4CaptureTest.php",
+            "sha256": "a0ca57ef1103547b8ea14746ab2330147e4df65071dc8d0e5f41f6f6abacd14a"
+        },
+        {
+            "path": "tests/V4ContentIndexReadyBatchTest.php",
+            "sha256": "c4e0fb58ffd4322518b64ed8201d1dcb253f975e16b7dfd6a48f2454bcb4d3b2"
+        },
+        {
+            "path": "tests/V4ContentIndexTest.php",
+            "sha256": "6679cc3b14f1f6fd141c86ca61ceead77eeb698c1196b320e936019af80b4892"
+        },
+        {
+            "path": "tests/V4ContentStoreReuseBatchTest.php",
+            "sha256": "24c783f23f1426d2b324f1de4dce5f25b47ecaf264f0628b47092e606502096f"
+        },
+        {
+            "path": "tests/V4ContentStoreTest.php",
+            "sha256": "3452d46bbacb4f7c8a664db4a3a273458a5d21b96df6df7880b2f99ff9bee684"
+        },
+        {
+            "path": "tests/V4FormatTest.php",
+            "sha256": "9f0cb55fbf1fe29b465594265372d4b78a38b0c210ecf90c416a5b9e2a9915fa"
+        },
+        {
+            "path": "tests/V4IndexRebuilderTest.php",
+            "sha256": "90ed7f8ee3dc75ac84b8188ac847ccc7d043e5b6b62386e79b4097ca1c60d39c"
+        },
+        {
+            "path": "tests/V4IndexValidatedCacheTest.php",
+            "sha256": "76b6710e64fb3c54801fad1694db7c46d4da123737d30074a9a9d9d81385c4c0"
+        },
+        {
+            "path": "tests/V4PackTest.php",
+            "sha256": "2a013fb04499efcb2cf62878db8adfbbefc00e6b77d3cf64aa005d16a59a8379"
+        },
+        {
+            "path": "tests/V4PageBatchUploadTest.php",
+            "sha256": "e0c711a6713bebad585dae307926a396d92d06b7d8196048ddf1ec57284697c0"
+        },
+        {
+            "path": "tests/V4PagesTest.php",
+            "sha256": "bdab863e5e64bd527f0555c11dfe2f86f4406065f0dd6434b11fc3e96d804308"
+        },
+        {
+            "path": "tests/V4RepositoryTest.php",
+            "sha256": "ca3d513b7e72cdbe3ad8d24e9f45bc7f0a7c4b2c2e56c067366608a43e75f5d3"
+        },
+        {
+            "path": "tests/V4RestorerTest.php",
+            "sha256": "f1316f65542f90d032a1dea16cf44f23336da8fd7e446e6ea1a80c64a8e692d1"
+        },
+        {
+            "path": "tests/V4ScaleTest.php",
+            "sha256": "7680f02cb3dc7bc42a7fb8effa72dcbfecea147eebb458b8347cf46f0e2297cf"
+        },
+        {
+            "path": "tests/V4SharingCaptureTest.php",
+            "sha256": "1a7b350f47f58fb7c84ad03ad28b6f1c953a99be7e7d99d8ba5640b7d4af89a9"
+        },
+        {
+            "path": "tests/WordPressAdminIntegrationTest.php",
+            "sha256": "e60690b7eb6b51142e3dffc4f90a6268a8e38044b4d09b9071dff53535b0868c"
+        },
+        {
+            "path": "tests/WordPressAdminTest.php",
+            "sha256": "90bc7bb4209c21072bd025663bb00a28ad496073f9833e48e01d59650a2838d2"
+        },
+        {
+            "path": "tests/WordPressArchiveSourceTest.php",
+            "sha256": "06147b1f6a2adfaaa8a1ed8b42d48c2f11518f8cadd854a2d7c71e9caa82616b"
+        },
+        {
+            "path": "tests/WordPressDatabaseHeartbeatIntegrationTest.php",
+            "sha256": "defd52d183ff917385b93b4e16bfda4d313a5e28d52ec4076287095cb9a73b86"
+        },
+        {
+            "path": "tests/WordPressDatabaseIntegrationTest.php",
+            "sha256": "cc38de93f4b8b1a81e4f047fb010a09e6e35ed0f67fd1dd23551b8eb72ae9864"
+        },
+        {
+            "path": "tests/WordPressDatabaseTest.php",
+            "sha256": "0b31b05543a8d248412374a41875ab2b7c98e99f416bd69c5d0e0201081c3204"
+        },
+        {
+            "path": "tests/WordPressExcludedForeignKeyTest.php",
+            "sha256": "258fa2fe97ca95f80a213ab6061b7fbf29b0862b8e402b85d1d582926e851dde"
+        },
+        {
+            "path": "tests/WordPressMediaAuditTest.php",
+            "sha256": "8edbf7bb1437f2b25f768a28302e4d1ca36524049fb691698202582930b57e3e"
+        },
+        {
+            "path": "tests/WordPressPolicyContextTest.php",
+            "sha256": "47e5b9ed8b68e3e7c972c79158249cf761c58154ed929385e36d67b31e40430b"
+        },
+        {
+            "path": "tests/WordPressPublicContentSourceTest.php",
+            "sha256": "f525d75e26dfd1ffec88edad908d39464a908ec7e8fc616197255c48eaea7090"
+        },
+        {
+            "path": "tests/WordPressRestoreAdminTest.php",
+            "sha256": "de03e8f4f58bcc34f65e770134be9b335da8b5793970741b80f3621baacde7a3"
+        },
+        {
+            "path": "tests/WordPressSourceTest.php",
+            "sha256": "35f2caa621827249ffdf4d2798169b5c2e8236f04ef54d2f5f5b284626a84de3"
+        },
+        {
+            "path": "tests/fixtures/b3-r2-service.mjs",
+            "sha256": "5398a396606721108744bd5fbd704798cd561e693dbb395a16c59bc7b5177d1a"
+        },
+        {
+            "path": "tests/fixtures/capture-progress-snapshot.php",
+            "sha256": "ffaf18c0249245576c3265f953252e30b3ccb7f2bc4a1b969377dfca160fab40"
+        },
+        {
+            "path": "tests/fixtures/content-store-heartbeat.php",
+            "sha256": "31af21dc2db007a7f728eaa8442a6214b4abe2dbc4d44fec7f427800bdf63afe"
+        },
+        {
+            "path": "tests/fixtures/database-metadata-heartbeat.php",
+            "sha256": "a5313864329146b9f26fb45d841ee087c757f31546cd2a39d76f1a6b320e5add"
+        },
+        {
+            "path": "tests/fixtures/index-cache-benchmark.php",
+            "sha256": "f3b19b299bdbc4d6aa89435ba7cd50af48fbbb712a116ec02dcd4cc21cad3b48"
+        },
+        {
+            "path": "tests/fixtures/index-ready-batch.php",
+            "sha256": "8c08d2e201083ac376bffd011c2dfe912bb94e27cfdad88dc1dc96b31fd06568"
+        },
+        {
+            "path": "tests/fixtures/ledger-process.php",
+            "sha256": "4ee14a73f13d121e403c70889204c273df08eee5f129cb7702930bd417176bf2"
+        },
+        {
+            "path": "tests/fixtures/live-progress-script.cjs",
+            "sha256": "f608eca1f7ab2b0edf39efd74d5c14c7d4d95aaeb468bb5889d215b5743f751b"
+        },
+        {
+            "path": "tests/fixtures/maintenance-heartbeat.php",
+            "sha256": "2a257738155b34bbf1265bc4a010c808fe0ffca1a49cc52805d2a08299b92336"
+        },
+        {
+            "path": "tests/fixtures/managed-publication-process.php",
+            "sha256": "d98ee7355b7cf7bcb7b9f9d1b674e61fa2f9675777de377c5b020ced67a70d7b"
+        },
+        {
+            "path": "tests/fixtures/mysql-row-cursor-fallback.php",
+            "sha256": "4407555d36cfc6b8175f5634c7f0e3ee54aaeb05804d9be27961d3fd2a88aa18"
+        },
+        {
+            "path": "tests/fixtures/object-service.php",
+            "sha256": "a6c5cfa94250eb33ef26b7eb784a01e83a33966c9814a5959c7bfcbcc3d9a223"
+        },
+        {
+            "path": "tests/fixtures/page-batch-step.php",
+            "sha256": "e6238c00eacbb5f2f2e021322191c33434150ff25ba56b2d45969cb3d1b51a5e"
+        },
+        {
+            "path": "tests/fixtures/policy-inner-heartbeat.php",
+            "sha256": "fb040547a0a2e41437860ec8b110bc5af804b2cfe6682dc1b8471ba501dd81b5"
+        },
+        {
+            "path": "tests/fixtures/r2-curl-reuse.php",
+            "sha256": "d7eb69e6d8dd09ce70050b377fb5db490422f4477ff982dfae2d6489e24abb96"
+        },
+        {
+            "path": "tests/fixtures/r2-parallel-put-pages.php",
+            "sha256": "a38e10f352166bb386b80a93976d33f50da8bfc4f8505c10cccec16fa1b68d2d"
+        },
+        {
+            "path": "tests/fixtures/r2-parallel-verify.php",
+            "sha256": "d93eff8d392fd54c4d4297d4e6c8e0b6daea4e8c590357f84c6f0e41433d681e"
+        },
+        {
+            "path": "tests/fixtures/r2-read-benchmark-client.php",
+            "sha256": "a3244520bf41627c77c0117a5102b9dfdc0bec7c66f2a72a374e8baa009cb9b4"
+        },
+        {
+            "path": "tests/fixtures/r2-read-benchmark-server.rb",
+            "sha256": "15c405ff55801fa9d13fbadb6ee682acd655a60a8d9e0f8a9c5ec6a19ada306b"
+        },
+        {
+            "path": "tests/fixtures/r2-read-benchmark.php",
+            "sha256": "e3e5b94c8d02d93c81a63bb41bcd0e17d80baf7ed0eae47d43e3ec217dfafff8"
+        },
+        {
+            "path": "tests/fixtures/r2-reader-process.php",
+            "sha256": "76b4133d8225111d157732cff5f5d40935f02bfb1d4994f768af1369dc3d624f"
+        },
+        {
+            "path": "tests/fixtures/r2-reader-service.mjs",
+            "sha256": "d372180f1a00e839f649be5a5d56ba71268e7893eed23de8d70c662f60bb4f3a"
+        },
+        {
+            "path": "tests/fixtures/r2-writer-http.php",
+            "sha256": "2904e03f2b917bd775df787f3721dade3f63bfc457214bbddbd9ec0e6da40609"
+        },
+        {
+            "path": "tests/fixtures/real-db-heartbeat.php",
+            "sha256": "f8aae21f7943a1584de5f51f06d50ac0b1fd08937fb36aed670d1f97946f9eee"
+        },
+        {
+            "path": "tests/fixtures/restore-consistency-warning.cjs",
+            "sha256": "5e786029f2be8d03f59b973f605661097f6f094218e42f3dd892f743b7ffe5c3"
+        },
+        {
+            "path": "tests/fixtures/runner-workspace-db.php",
+            "sha256": "16f3a55fc6b307dcc5c6c52a2bbf4acfc4a83fcc0069538137d3aee1bcd91386"
+        },
+        {
+            "path": "tests/fixtures/schedule-cli-wp.php",
+            "sha256": "1feaa9edfa90ef7a5b8eb89afbeaf178ddfb9603d67d0f60aed4e60a1ed730e1"
+        },
+        {
+            "path": "tests/fixtures/shared-pack-transfer.php",
+            "sha256": "bc4f73b412b113ce184ea4a16ee56a7d927a1db5b984d539f24c17f3cd1d00db"
+        },
+        {
+            "path": "tests/fixtures/source-delta-writer.php",
+            "sha256": "5c6f3ba60f994b665e9fcc2f1ae9eb6ddcac58715184a553f98fdc30f45d1865"
+        },
+        {
+            "path": "tests/fixtures/source-switch-process.php",
+            "sha256": "0f980acc4cc11dd44b72aeb79ea2974ffdbe8f3d798d0c93ca79a4c813ddc0e7"
+        },
+        {
+            "path": "tests/fixtures/staging-crash-process.php",
+            "sha256": "d99f34a360a8b2ef49eb6472f8bc8afbc1f70784f9b453b9c021163345707f3e"
+        },
+        {
+            "path": "tests/fixtures/wordpress-post.php",
+            "sha256": "ae4bcdb3c37348f04d8f7d65e3f12782d5f41ae9ad6e9d51c4e243a9f61d7bf6"
+        },
+        {
+            "path": "tests/fixtures/wordpress-server.php",
+            "sha256": "91ad84750222e2b21ef2b9437ba4802cac36f0fd437c8162c7be3fb98c702408"
+        },
+        {
+            "path": "tests/measure-age.php",
+            "sha256": "0278c998501e2e4c5468bee44c02dbbaf62fb2828fde87f25267b161d920d2e4"
+        },
+        {
+            "path": "tests/restore-e2e-fixture.php",
+            "sha256": "f1c101209cb2acdb66a6b136ae96dbd5a9a76d78d9a9bb1e2630f7802c78461c"
+        },
+        {
+            "path": "tests/restore-real-wp-fixture.php",
+            "sha256": "e3a6b3516846581a878af584ac12e46d90c2074aeace825703fb41821fba2b0b"
+        },
+        {
+            "path": "tests/runtime.example.php",
+            "sha256": "8af42cec373718dd2f78eb9347302d2a8e71320a442ca3df8daf9a8e112fd337"
+        },
+        {
+            "path": "tests/support/r2-connector/package-lock.json",
+            "sha256": "355f11c7e9d3e69fa63dd160fb3c8f7c1a161f2885078b81c49a50222e259bd7"
+        },
+        {
+            "path": "tests/support/r2-connector/package.json",
+            "sha256": "2ff0b4f114021296d95c9460b7aea52def053874622b3659d3c6aebb1d3079eb"
+        },
+        {
+            "path": "tests/support/r2-connector/src/r2-objects.mjs",
+            "sha256": "756fefc20aaae2ed469668fd0e0b0cd48b73c8555b29b183485cf61a4c93aead"
+        },
+        {
+            "path": "tests/support/r2-connector/src/unit-coordinator.mjs",
+            "sha256": "767a96e3868225a2a588708e5f5c8af8bd31583dbb00174c56ea02da5eb1b98d"
+        },
+        {
+            "path": "tests/support/r2-connector/src/worker.mjs",
+            "sha256": "2cc0fb944c33d9d300e3d3703e85c786c861d936eaf15d343566085791a4b34c"
+        },
+        {
+            "path": "wordpress-r2-backup.php",
+            "sha256": "ed95841f1cb188bd89797d9d9737fb7f595dbbde7b17a85e2df94ff63e94f617"
+        },
+        {
+            "path": "worker.php",
+            "sha256": "201e30618fe313b2ddf2121172616dbaa448f8aa1455c521a8dd876034c69b96"
+        }
+    ]
+}

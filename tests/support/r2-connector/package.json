@@ -1,0 +1,12 @@
+{
+  "name": "wordpress-r2-connector",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "miniflare": "4.20260722.1"
+  }
+}

@@ -1,0 +1,7 @@
+{
+    "repository": "https://github.com/WordPress/sqlite-database-integration",
+    "commit": "c156cf1066d1f0fce65ef8769debf0a2480bef65",
+    "pluginVersion": "3.1.2",
+    "packaging": "Plugin package with wp-includes/database symlink replaced by mysql-on-sqlite/src. Upstream PHP files unchanged.",
+    "license": "GPL-2.0-or-later"
+}

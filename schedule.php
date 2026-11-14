@@ -1,0 +1,89 @@
+<?php
+declare(strict_types=1);
+
+// The maintenance mode is deliberately unavailable for scheduling until an external-writer
+// verifier can prove that writes remain stopped throughout capture.
+if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
+if (count($argv) !== 2 || !is_string($argv[1])) { fwrite(STDERR, "WordPressのルートを指定してください。\n"); exit(1); }
+$root = realpath($argv[1]);
+if ($root === false || !is_file($root . '/wp-load.php')) { fwrite(STDERR, "WordPressを確認できません。\n"); exit(1); }
+define('DISABLE_WP_CRON', true);
+try {
+    require $root . '/wp-load.php';
+    require_once __DIR__ . '/vendor/autoload.php';
+    $class = new ReflectionClass(\WordPressR2Backup\BackupScheduler::class);
+    if (realpath((string) $class->getFileName()) !== realpath(__DIR__ . '/src/BackupScheduler.php')) { throw new RuntimeException('Release mismatch.'); }
+    $workspace = \WordPressR2Backup\LiveSettings::workspace();
+    \WordPressR2Backup\BackupScheduler::withScheduleLock($workspace, static function (): void {
+        wp_cache_delete('wrb_live_schedule', 'options'); wp_cache_delete('wrb_live_schedule_runner', 'options'); wp_cache_delete('notoptions', 'options');
+        $config = get_option('wrb_live_schedule', null);
+        if ($config !== null && !is_array($config)) { throw new RuntimeException('Schedule configuration is invalid.'); }
+        $state = get_option('wrb_live_schedule_runner', []);
+        if (!is_array($state)) { throw new RuntimeException('Schedule state is invalid.'); }
+        $lastAttempt = $state['lastAttempt'] ?? null;
+        if ($lastAttempt !== null && !is_string($lastAttempt)) { throw new RuntimeException('Schedule state is invalid.'); }
+        if (($state['lastResult'] ?? '') === 'claimed') {
+            if ($lastAttempt === null || !is_string($state['claimRevision'] ?? null) || !preg_match('/\A[a-f0-9]{64}\z/D', $state['claimRevision'])) { throw new RuntimeException('Schedule claim is invalid.'); }
+            $state['lastResult'] = 'interrupted';
+            $state['message'] = '前回の定期実行の起動結果を確認できません。重複を避けて再実行しないため、バックアップの状態を確認してください。';
+        }
+        $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+        $zone = wp_timezone();
+        $missed = is_array($config) ? \WordPressR2Backup\BackupScheduler::latestMissed($config, $state, $zone, $now) : null;
+        if ($missed !== null) { $state['lastMissedSlot'] = $missed; $state['lastMissedRecordedAt'] = $now->format('Y-m-d\TH:i:s\Z'); $state['lastMissedRevision'] = $config['revision']; }
+        if (is_array($config)) { $state['observedRevision'] = $config['revision']; }
+        $slot = is_array($config) ? \WordPressR2Backup\BackupScheduler::due($config, $lastAttempt, $zone, $now) : null;
+        $state['lastSeen'] = $now->format('Y-m-d\TH:i:s\Z');
+        $persist = static function (array $value): void {
+            update_option('wrb_live_schedule_runner', $value, false);
+            wp_cache_delete('wrb_live_schedule_runner', 'options'); wp_cache_delete('notoptions', 'options');
+            if (get_option('wrb_live_schedule_runner', null) !== $value) { throw new RuntimeException('Schedule state could not be recorded.'); }
+        };
+        if ($slot !== null) {
+            // Claim before any future launch. A crash may miss one slot, but cannot replay it.
+            $state['lastAttempt'] = $slot; $state['claimRevision'] = $config['revision'];
+            $state['status'] = 'claimed'; $state['lastResult'] = 'claimed';
+            $persist($state);
+            wp_cache_delete('wrb_live_schedule', 'options'); wp_cache_delete('notoptions', 'options');
+            if (get_option('wrb_live_schedule', null) !== $config) {
+                $state['status'] = 'config_changed'; $state['lastResult'] = 'config_changed';
+                $state['message'] = '設定が変更されたため定期実行を開始しませんでした。';
+            } elseif (($config['mode'] ?? '') === 'online') {
+                try {
+                    \WordPressR2Backup\BackupScheduler::assertOnlineRelease(__DIR__);
+                    $ready = true;
+                } catch (Throwable $error) { $ready = false; }
+                if (!$ready) {
+                    $state['status'] = 'unavailable'; $state['lastResult'] = 'unavailable';
+                    $state['message'] = '保守なし取得に対応する有効なリリースを確認できませんでした。';
+                } else {
+                    try {
+                        wp_cache_delete(\WordPressR2Backup\LiveSettings::OPTION, 'options'); wp_cache_delete('notoptions', 'options');
+                        $settings = \WordPressR2Backup\LiveSettings::load();
+                        if (!is_array($settings)) { throw new RuntimeException('Backup settings are missing.'); }
+                        $queued = (new \WordPressR2Backup\LiveRunner($settings))->startOnline();
+                        $digest = hash('sha256', json_encode($settings, JSON_THROW_ON_ERROR));
+                        if (($queued['status'] ?? '') !== 'queued' || ($queued['consistencyMode'] ?? '') !== 'online'
+                            || !is_string($queued['settingsDigest'] ?? null) || !hash_equals($digest, $queued['settingsDigest'])
+                            || !is_string($queued['sharingDigest'] ?? null) || !preg_match('/\A[a-f0-9]{64}\z/D', $queued['sharingDigest'])) {
+                            throw new RuntimeException('Online queue could not be verified.');
+                        }
+                        $state['status'] = 'started'; $state['lastResult'] = 'started';
+                        $state['message'] = '保守なしバックアップの起動を受け付けました。実行状況を確認してください。';
+                    } catch (Throwable $error) {
+                        // The worker may have started before an acknowledgement was lost; never retry this slot.
+                        $state['status'] = 'failed'; $state['lastResult'] = 'failed';
+                        $state['message'] = '起動依頼を確認できません。自動再試行せず、バックアップの状態を確認してください。';
+                    }
+                }
+            } else {
+                $state['status'] = 'unavailable'; $state['lastResult'] = 'unavailable';
+                $state['message'] = '安全な自動取得の準備が未完了のため開始しませんでした。';
+            }
+        } else { $state['status'] = 'not_due'; }
+        $persist($state);
+        fwrite(STDOUT, json_encode(['status' => $state['status']], JSON_THROW_ON_ERROR) . "\n");
+    });
+} catch (Throwable $error) {
+    fwrite(STDERR, "定期実行の状態を確認できませんでした。\n"); exit(1);
+}

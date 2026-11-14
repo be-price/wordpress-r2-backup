@@ -1,0 +1,5 @@
+/vendor/
+/.phpunit.cache/
+/tests/runtime.php
+/.wrangler/
+/tests/support/r2-connector/node_modules/

@@ -1,0 +1,39 @@
+{
+  "name": "beprice/wordpress-r2-backup",
+  "description": "Encrypted WordPress backups to Cloudflare R2 and independent recovery",
+  "type": "wordpress-plugin",
+  "license": "GPL-2.0-or-later",
+  "require": {
+    "php": ">=7.4",
+    "ext-intl": "*",
+    "ext-mbstring": "*",
+    "ext-curl": "*",
+    "ext-openssl": "*",
+    "ext-dom": "*",
+    "symfony/polyfill-php80": "^1.33",
+    "symfony/polyfill-php81": "^1.33"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^9.6"
+  },
+  "suggest": {
+    "ext-mysqli": "Required by WordPress for streaming live database backup."
+  },
+  "autoload": {
+    "psr-4": {
+      "WordPressR2Backup\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "WordPressR2Backup\\Tests\\": "tests/"
+    }
+  },
+  "config": {
+    "allow-plugins": {},
+    "sort-packages": true,
+    "platform": {
+      "php": "7.4.0"
+    }
+  }
+}
