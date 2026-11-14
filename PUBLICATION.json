@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "sourceCommit": "951aadea212d976081b9b8fce119a81cd48bd0cd",
+    "sourceCommit": "2c99f135cdb22386a00d36285cd27c4ca1d2f8f5",
     "files": [
         {
             "path": ".gitignore",
@@ -236,7 +236,7 @@
         },
         {
             "path": "docs/format-and-design.md",
-            "sha256": "e85aa6422e9b127a1fb8ad8ab35ffa8d7dbb1aa9fc2aa8878587c25fe8955f79"
+            "sha256": "cc1d011a8216c4d03728d29e90f98ab31f7dbfd621ccd3885ed2b4e9ca6a9796"
         },
         {
             "path": "docs/v4-format.md",
