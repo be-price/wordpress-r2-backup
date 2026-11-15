@@ -249,6 +249,73 @@ final class RecoveryMetadataMapTest extends TestCase
         self::assertSame(0, $db->querySingle('PRAGMA mmap_size'));
     }
 
+    public function cacheSizes(): array { return [[null, 2048], ['2', 2048], ['64', 65536], ['512', 524288], ['768', 786432], ['1024', 1048576]]; }
+
+    /** @dataProvider cacheSizes */
+    public function testCacheSizeIsBoundedAndRetainedByWriterAndSealedReaders(?string $setting, int $kib): void
+    {
+        $previous = getenv('WRB_RECOVERY_METADATA_CACHE_MIB');
+        try {
+            putenv('WRB_RECOVERY_METADATA_CACHE_MIB' . ($setting === null ? '' : '=' . $setting));
+            $map = $this->map('sqlite');
+            $database = new \ReflectionProperty($map, 'db'); $database->setAccessible(true);
+            self::assertSame(-$kib, $database->getValue($map)->querySingle('PRAGMA cache_size'));
+            $map->put('cache-test', ['ok' => true]);
+            // Reopening must retain the validated per-map setting, not reread a changed environment.
+            putenv('WRB_RECOVERY_METADATA_CACHE_MIB=invalid');
+            for ($reopen = 0; $reopen < 2; ++$reopen) {
+                $map->seal();
+                self::assertSame(-$kib, $database->getValue($map)->querySingle('PRAGMA cache_size'));
+                self::assertSame(1, $database->getValue($map)->querySingle('PRAGMA query_only'));
+                self::assertSame(['ok' => true], $map->get('cache-test'));
+            }
+        } finally { putenv('WRB_RECOVERY_METADATA_CACHE_MIB' . ($previous === false ? '' : '=' . $previous)); }
+    }
+
+    public function connectionModes(): array { return [[true], [false]]; }
+
+    /** @dataProvider connectionModes */
+    public function testCacheSettingMustReadBackForWriterAndReader(bool $writer): void
+    {
+        $map = $this->map('sqlite');
+        $db = new class(':memory:') extends \SQLite3 {
+            public function exec($query): bool
+            {
+                if (strpos($query, 'PRAGMA cache_size=') === 0) { return true; }
+                return parent::exec($query);
+            }
+        };
+        try {
+            $configure = new \ReflectionMethod($map, 'configure'); $configure->setAccessible(true);
+            $this->expectException(RuntimeException::class);
+            $this->expectExceptionMessage('The recovery metadata database settings were not applied.');
+            $configure->invoke($map, $db, $writer);
+        } finally { $db->close(); }
+    }
+
+    public function invalidCacheSizes(): array
+    {
+        return [[''], ['1'], ['1025'], ['0768'], ['02'], ['2.0'], ['+2'], [' 2'], ['2 '], ['1e2'], ['999999999999999999999']];
+    }
+
+    /** @dataProvider invalidCacheSizes */
+    public function testInvalidCacheSizesFailBeforeCreatingTheIndex(string $setting): void
+    {
+        $previous = getenv('WRB_RECOVERY_METADATA_CACHE_MIB');
+        $directory = Fixture::temp() . '/invalid-cache';
+        try {
+            putenv('WRB_RECOVERY_METADATA_CACHE_MIB=' . $setting);
+            $rejected = false;
+            try { $this->track(RecoveryMetadataMap::create($directory, 'sqlite')); }
+            catch (RuntimeException $error) {
+                $rejected = true;
+                self::assertSame('Invalid recovery metadata cache size.', $error->getMessage());
+                self::assertFileDoesNotExist($directory);
+            }
+            self::assertTrue($rejected, 'An invalid cache size must be rejected.');
+        } finally { putenv('WRB_RECOVERY_METADATA_CACHE_MIB' . ($previous === false ? '' : '=' . $previous)); }
+    }
+
     public function testManyLargeValuesAreEnumeratedAndSealedWithinTheMemoryLimitAndPageBudget(): void
     {
         $previous = ini_get('memory_limit');

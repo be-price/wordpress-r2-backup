@@ -133,7 +133,7 @@ try {
         'localR2CiphertextMaximumBytes' => 134217728,
         'localR2PartMaximumBytes' => 16777216,
         'mysqlClients' => 'Separately required. Isolated MySQL 8.0.35, or event-free v4 with MariaDB 10.5.29. Server startup event_scheduler=DISABLED is required.',
-        'sqliteRecovery' => ['extensions' => ['pdo', 'pdo_sqlite'], 'driverCommit' => 'c156cf1066d1f0fce65ef8769debf0a2480bef65', 'scope' => 'Version 4 snapshots only; a new SQLite file is required.'],
+        'sqliteRecovery' => ['extensions' => ['pdo', 'pdo_sqlite', 'sqlite3'], 'driverCommit' => 'c156cf1066d1f0fce65ef8769debf0a2480bef65', 'scope' => 'Version 4 snapshots only; a new SQLite file is required. PDO/PDO_SQLite are required for import; SQLite3 is additionally required for the optional running copy.'],
     ];
     file_put_contents($output . '/dependencies/versions.json', json_encode($dependencies, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
     $hashes = [];

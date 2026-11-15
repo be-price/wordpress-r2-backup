@@ -249,8 +249,8 @@ final class V4Restorer
         foreach ($this->records($manifest, 'filesystem', $identity, $scan) as $record) {
             if ($record['type'] === 'part') {
                 if ($file === null) { throw new RuntimeException('V4 content part has no open file.'); }
-                $this->reference($record['content'], $map);
-                $content = $payload ? $this->content($record['content'], $map, $scan) : '';
+                $member = $this->reference($record['content'], $map);
+                $content = $payload ? $this->content($record['content'], $map, $scan, $member) : '';
                 $file['bytes'] += $record['content']['size'];
                 if ($file['bytes'] > $file['record']['size']) { throw new RuntimeException('V4 file exceeds its declared size.'); }
                 hash_update($file['hash'], $content); continue;
@@ -288,8 +288,8 @@ final class V4Restorer
                     if ($map->get($tableKey) !== null) { throw new RuntimeException('Repeated v4 database table.'); }
                     $map->put($tableKey, $record); ++$tables;
                 } else {
-                    $this->reference($record['content'], $map);
-                    $bytes = $payload ? $this->content($record['content'], $map, $scan) : ''; $sqlBytes += $record['content']['size'];
+                    $member = $this->reference($record['content'], $map);
+                    $bytes = $payload ? $this->content($record['content'], $map, $scan, $member) : ''; $sqlBytes += $record['content']['size'];
                     if ($sqlBytes > $manifest['database']['size']) { throw new RuntimeException('V4 SQL exceeds its declared size.'); }
                     if ($payload) { $this->write($sql, $bytes); hash_update($sqlHash, $bytes); }
                 }
@@ -297,15 +297,14 @@ final class V4Restorer
             if ($payload && !FileSafety::sync($sql)) { throw new RuntimeException('Cannot persist recovered v4 SQL.'); }
         } finally { if (is_resource($sql)) { fclose($sql); } }
         if ($tables !== $manifest['database']['tableCount'] || $sqlBytes !== $manifest['database']['size'] || ($payload && !hash_equals($manifest['database']['sha256'], hash_final($sqlHash)))) { throw new RuntimeException('V4 database size, digest or table count differs.'); }
-        $references = 0;
-        foreach ($map->entries() as $key => $value) { if (strpos($key, 'reference:') === 0) { ++$references; } }
-        if ($references !== $manifest['counts']['contents']) { throw new RuntimeException('V4 referenced content count differs.'); }
-        $policy = new PrivacyPolicy($manifest['wordpress']['policy']);
-        if (!$policy->isComplete()) {
-            foreach ($map->entries() as $key => $value) {
-                if (strpos($key, 'content:') === 0 && $map->get('reference:' . $value['id']) === null) { throw new RuntimeException('Excluded v4 snapshot contains unreferenced pack content.'); }
-            }
+        $references = 0; $unreferenced = false;
+        $rejectUnreferenced = !(new PrivacyPolicy($manifest['wordpress']['policy']))->isComplete();
+        foreach ($map->entries() as $key => $value) {
+            if (strpos($key, 'reference:') === 0) { ++$references; }
+            if ($rejectUnreferenced && strpos($key, 'content:') === 0 && $map->get('reference:' . $value['id']) === null) { $unreferenced = true; }
         }
+        if ($references !== $manifest['counts']['contents']) { throw new RuntimeException('V4 referenced content count differs.'); }
+        if ($unreferenced) { throw new RuntimeException('Excluded v4 snapshot contains unreferenced pack content.'); }
         $map->seal();
         return $map;
     }
@@ -330,16 +329,18 @@ final class V4Restorer
         }
     }
 
-    private function reference(array $reference, RecoveryMetadataMap $map): void
+    private function reference(array $reference, RecoveryMetadataMap $map): array
     {
         $member = $map->get('member:' . $reference['pack'] . ':' . $reference['id']);
         if ($member !== ['id' => $reference['id'], 'size' => $reference['size'], 'sha256' => $reference['sha256']]) { throw new RuntimeException('V4 content reference differs from its pack member.'); }
         $map->put('reference:' . $reference['id'], ['id' => $reference['id']]);
+        return $member;
     }
 
-    private function content(array $reference, RecoveryMetadataMap $map, string $scan): string
+    /** An authenticated member may only come from the immediately preceding reference() call. */
+    private function content(array $reference, RecoveryMetadataMap $map, string $scan, ?array $authenticatedMember = null): string
     {
-        $member = $map->get('member:' . $reference['pack'] . ':' . $reference['id']);
+        $member = $authenticatedMember ?? $map->get('member:' . $reference['pack'] . ':' . $reference['id']);
         if ($member !== ['id' => $reference['id'], 'size' => $reference['size'], 'sha256' => $reference['sha256']]) { throw new RuntimeException('V4 content reference differs from its pack member.'); }
         if ($map->backend() !== 'legacy') {
             $identity = $map->get('packed-archive:' . $reference['pack']);
@@ -362,8 +363,8 @@ final class V4Restorer
             $prefix = $prefix === '' ? $part : $prefix . '/' . $part;
             $key = 'fold:' . mb_convert_case(\Normalizer::normalize($prefix, \Normalizer::FORM_C), MB_CASE_FOLD, 'UTF-8');
             $prior = $map->get($key);
-            if ($prior !== null && $prior['path'] !== $prefix) { throw new RuntimeException('V4 paths collide after Unicode normalization and case folding.'); }
-            $map->put($key, ['path' => $prefix]);
+            if ($prior !== null && $prior !== ['path' => $prefix]) { throw new RuntimeException('V4 paths collide after Unicode normalization and case folding.'); }
+            if ($prior === null) { $map->put($key, ['path' => $prefix]); }
             if ($index < $last && ($map->get('entry:' . $prefix)['type'] ?? 'directory') !== 'directory') { throw new RuntimeException('V4 file or link is an ancestor of another entry.'); }
         }
         $parent = dirname($path);

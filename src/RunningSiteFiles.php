@@ -65,7 +65,10 @@ GUARD
                 . '$wrbUrl = is_string($wrbPreview) && $wrbPreview !== \'\' ? $wrbPreview : ' . var_export($targetUrl, true) . ";\ndefine('WP_HOME', \$wrbUrl);\ndefine('WP_SITEURL', \$wrbUrl);\nunset(\$wrbPreview, \$wrbUrl);\n";
         }
         foreach (['AUTH_KEY', 'SECURE_AUTH_KEY', 'LOGGED_IN_KEY', 'NONCE_KEY', 'AUTH_SALT', 'SECURE_AUTH_SALT', 'LOGGED_IN_SALT', 'NONCE_SALT'] as $name) { $configuration .= "define('$name', '" . bin2hex(random_bytes(32)) . "');\n"; }
-        return $configuration . "define('DISABLE_WP_CRON', true);\ndefine('WP_HTTP_BLOCK_EXTERNAL', true);\ndefine('AUTOMATIC_UPDATER_DISABLED', true);\ndefine('DISALLOW_FILE_MODS', true);\ndefine('WP_ENVIRONMENT_TYPE', 'local');\ndefine('WP_CACHE', false);\ndefine('WP_DEBUG', false);\n\$table_prefix = " . var_export($tablePrefix, true) . ";\ndefine('ABSPATH', __DIR__ . '/');\nrequire_once ABSPATH . 'wp-settings.php';\n";
+        foreach (['DISABLE_WP_CRON', 'WP_HTTP_BLOCK_EXTERNAL', 'AUTOMATIC_UPDATER_DISABLED', 'DISALLOW_FILE_MODS'] as $name) {
+            $configuration .= "if (defined('$name')) { if ($name !== true) { throw new \\RuntimeException('Local isolation requires $name to be true.'); } } else { define('$name', true); }\n";
+        }
+        return $configuration . "define('WP_ENVIRONMENT_TYPE', 'local');\ndefine('WP_CACHE', false);\ndefine('WP_DEBUG', false);\n\$table_prefix = " . var_export($tablePrefix, true) . ";\nif (defined('ABSPATH')) { if (ABSPATH !== __DIR__ . '/') { throw new \\RuntimeException('Local WordPress root does not match this configuration.'); } } else { define('ABSPATH', __DIR__ . '/'); }\nrequire_once ABSPATH . 'wp-settings.php';\n";
     }
 
     private static function copyFile(string $source, string $destination): void

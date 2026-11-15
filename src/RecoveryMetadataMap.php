@@ -34,6 +34,7 @@ final class RecoveryMetadataMap
     private const BACKENDS = ['auto', 'sqlite', 'files', 'legacy'];
 
     private string $backend;
+    private int $cacheKiB = 2048;
     private ?MetadataMap $files = null;
     private bool $sealed = false;
     private bool $closed = false;
@@ -63,7 +64,7 @@ final class RecoveryMetadataMap
         if ($backend === 'auto') { $backend = self::sqliteAvailable() ? 'sqlite' : 'files'; }
         if ($backend === 'sqlite' && !self::sqliteAvailable()) { throw new RuntimeException('The SQLite recovery metadata backend is unavailable.'); }
         $map = new self($backend);
-        if ($backend === 'sqlite') { $map->initialize($newDirectory); }
+        if ($backend === 'sqlite') { $map->cacheKiB = self::configuredCacheKiB(); $map->initialize($newDirectory); }
         else { $map->files = MetadataMap::create($newDirectory, 4194304, $backend === 'files' ? 64 : PHP_INT_MAX); }
         return $map;
     }
@@ -195,6 +196,17 @@ final class RecoveryMetadataMap
         if ($error !== null) { throw $error; }
     }
 
+    /** Only a trusted CLI environment may tune this per-connection cache; request input is never consulted. */
+    private static function configuredCacheKiB(): int
+    {
+        $value = PHP_SAPI === 'cli' ? getenv('WRB_RECOVERY_METADATA_CACHE_MIB') : false;
+        if ($value === false) { return 2048; }
+        if (!preg_match('/\A[1-9][0-9]{0,3}\z/D', $value) || (int) $value < 2 || (int) $value > 1024) {
+            throw new RuntimeException('Invalid recovery metadata cache size.');
+        }
+        return (int) $value * 1024;
+    }
+
     private static function sqliteAvailable(): bool
     {
         return extension_loaded('sqlite3') && class_exists('SQLite3') && \SQLite3::version()['versionNumber'] >= 3008002;
@@ -241,9 +253,9 @@ final class RecoveryMetadataMap
         $hardened = \SQLite3::version()['versionNumber'] >= 3031000;
         if ($writer) { $db->exec('PRAGMA journal_mode=MEMORY'); $db->exec('PRAGMA synchronous=FULL'); }
         else { $db->exec('PRAGMA query_only=ON'); }
-        $db->exec('PRAGMA cache_size=-2048'); $db->exec('PRAGMA temp_store=MEMORY'); $db->exec('PRAGMA mmap_size=0'); $db->exec('PRAGMA cell_size_check=ON');
+        $db->exec('PRAGMA cache_size=-' . $this->cacheKiB); $db->exec('PRAGMA temp_store=MEMORY'); $db->exec('PRAGMA mmap_size=0'); $db->exec('PRAGMA cell_size_check=ON');
         if ($hardened) { $db->exec('PRAGMA trusted_schema=OFF'); }
-        if ((int) $db->querySingle('PRAGMA cache_size') !== -2048 || (int) $db->querySingle('PRAGMA temp_store') !== 2 || (int) $db->querySingle('PRAGMA mmap_size') !== 0
+        if ((int) $db->querySingle('PRAGMA cache_size') !== -$this->cacheKiB || (int) $db->querySingle('PRAGMA temp_store') !== 2 || (int) $db->querySingle('PRAGMA mmap_size') !== 0
             || (int) $db->querySingle('PRAGMA cell_size_check') !== 1 || ($hardened && (int) $db->querySingle('PRAGMA trusted_schema') !== 0)
             || ($writer && (strtolower((string) $db->querySingle('PRAGMA journal_mode')) !== 'memory' || (int) $db->querySingle('PRAGMA synchronous') !== 2))
             || (!$writer && (int) $db->querySingle('PRAGMA query_only') !== 1)) {

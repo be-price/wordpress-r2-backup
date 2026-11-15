@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "sourceCommit": "2c99f135cdb22386a00d36285cd27c4ca1d2f8f5",
+    "sourceCommit": "a7551074328383bf76aa058bfb7f7df6aa5b92be",
     "files": [
         {
             "path": ".gitignore",
@@ -252,11 +252,11 @@
         },
         {
             "path": "recovery/README.md",
-            "sha256": "95ac79e99bebbbf4dfdd843b1ac58962d7d7f909639fe117e4a890f56ad75f98"
+            "sha256": "69c1d5af9decccd033d542d32c04045af471e76ac8de5807ab4df42b6361ae30"
         },
         {
             "path": "recovery/build-kit.php",
-            "sha256": "8c159f2dd103d8ecdb7b23d51e9f0989195c7a7cc22e18c2e62c7fe0e4ed41ec"
+            "sha256": "5cf14cc1baf7c9d40665ab5315de294513e3cf6ceffaeea2eb04962e0939cfdd"
         },
         {
             "path": "recovery/recover-web.php",
@@ -404,7 +404,7 @@
         },
         {
             "path": "src/RecoveryMetadataMap.php",
-            "sha256": "fb2bcb68bcd06645e806213c696faf563598787f5844548c4337ea8e6aabb6f2"
+            "sha256": "346ada9c00ab62a7074be0067fc1cc8fcee49c8246a51e5b20a8d80bd65692c5"
         },
         {
             "path": "src/RestoreApi.php",
@@ -444,7 +444,7 @@
         },
         {
             "path": "src/RunningSiteFiles.php",
-            "sha256": "9560c75f2af8b5c7e8176039de3a8c1931fe0c46b63fe5928e9c43c66f474dc8"
+            "sha256": "213cdda0f42cd72e44726ef1f863a3ef70f3e40a30404d13673436305b9481ba"
         },
         {
             "path": "src/SiteUrlRewriter.php",
@@ -528,7 +528,7 @@
         },
         {
             "path": "src/V4Restorer.php",
-            "sha256": "0e3ce10149ff5e8d6318a7a946bdeececb165b1e2d6ee0abb6bd1dfd01f8ef3a"
+            "sha256": "7e039707cf4d87239b7e8dea34f376fcb179de760aed7bd94179301833e5483a"
         },
         {
             "path": "src/WordPressAdmin.php",
@@ -896,11 +896,11 @@
         },
         {
             "path": "tests/RecoveryKitTest.php",
-            "sha256": "85ba1cb83f24b875123087df3f3a9a72a64c9bffdca293ba9ee0cc0c51316d84"
+            "sha256": "55413326addbb0c559b460df0e3d41144c961b37d59b828bbec6a274b137f36f"
         },
         {
             "path": "tests/RecoveryMetadataMapTest.php",
-            "sha256": "89fe368df489a9ac6dff147f9f6ff70525e26db110b94d21ec6b562f3f6f4684"
+            "sha256": "b137104faf706d54d01c4138c57a6ea87c0a0d314c86067f540ab2ab5875a9cb"
         },
         {
             "path": "tests/RepositoryPortTest.php",
@@ -917,6 +917,10 @@
         {
             "path": "tests/RestoreRealWordPressTest.php",
             "sha256": "a130ae3acc6ef9a3a0225caa0c37bbb943b48be78ff8de937fed5d56a877edb6"
+        },
+        {
+            "path": "tests/RunningSiteFilesTest.php",
+            "sha256": "539ab7a17dcd2cb355481f59f7c4875d2755c305b97fed7d1c42d3757eb70893"
         },
         {
             "path": "tests/RestoreServiceTest.php",
@@ -1044,7 +1048,7 @@
         },
         {
             "path": "tests/V4RestorerTest.php",
-            "sha256": "f1316f65542f90d032a1dea16cf44f23336da8fd7e446e6ea1a80c64a8e692d1"
+            "sha256": "9d6fbfc865870046c7412e0f1ca40c4bb9be0b0646169a350bd7bb2a031883ff"
         },
         {
             "path": "tests/V4ScaleTest.php",

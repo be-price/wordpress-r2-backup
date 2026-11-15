@@ -16,12 +16,30 @@ final class RecoveryKitTest extends TestCase
         Fixture::cleanup();
     }
 
+    public function testKitDeclaresExtensionsForSqliteImportAndOptionalRunningCopy(): void
+    {
+        if (PHP_OS_FAMILY !== 'Darwin' || php_uname('m') !== 'arm64') { self::markTestSkipped('Kit builds require Darwin arm64.'); }
+        $archive = getenv('WRB_TEST_AGE_ARCHIVE') ?: dirname(Fixture::runtime()['age'], 2) . '/age.tar.gz';
+        if (!is_file($archive)) { self::markTestSkipped('Provide the official age archive through WRB_TEST_AGE_ARCHIVE.'); }
+        $root = Fixture::temp(); $kit = $root . '/kit';
+        // Dependency installation is unrelated to the generated requirements record.
+        // Keep this metadata regression offline; full kit execution is covered separately.
+        $composer = $root . '/composer-fixture.php'; file_put_contents($composer, '<?php exit(0);');
+        [$exit, $out, $error] = $this->command([PHP_BINARY, dirname(__DIR__) . '/recovery/build-kit.php', '--output', $kit, '--age-archive', $archive, '--composer', $composer]);
+        self::assertSame(0, $exit, $out . $error);
+        $versions = json_decode(file_get_contents($kit . '/dependencies/versions.json'), true, 32, JSON_THROW_ON_ERROR);
+        self::assertSame(['pdo', 'pdo_sqlite', 'sqlite3'], $versions['sqliteRecovery']['extensions']);
+        self::assertSame('c156cf1066d1f0fce65ef8769debf0a2480bef65', $versions['sqliteRecovery']['driverCommit']);
+        $hashes = json_decode(file_get_contents($kit . '/SHA256SUMS.json'), true, 32, JSON_THROW_ON_ERROR);
+        self::assertSame(hash_file('sha256', $kit . '/dependencies/versions.json'), $hashes['dependencies/versions.json']);
+    }
+
     public function testStandaloneKitRestoresForEitherAdministrator(): void
     {
         $root = Fixture::temp();
         $kit = $root . '/kit';
         $tools = dirname(__DIR__) . '/recovery';
-        $archive = dirname(Fixture::runtime()['age'], 2) . '/age.tar.gz';
+        $archive = getenv('WRB_TEST_AGE_ARCHIVE') ?: dirname(Fixture::runtime()['age'], 2) . '/age.tar.gz';
         [$exit, $out, $error] = $this->command([PHP_BINARY, $tools . '/build-kit.php', '--output', $kit, '--age-archive', $archive]);
         self::assertSame(0, $exit, $out . $error);
         self::assertDirectoryDoesNotExist($kit . '/library/vendor/phpunit');
@@ -29,6 +47,7 @@ final class RecoveryKitTest extends TestCase
         self::assertFileExists($kit . '/dependencies/age/LICENSE');
         $versions = json_decode(file_get_contents($kit . '/dependencies/versions.json'), true, 32, JSON_THROW_ON_ERROR);
         self::assertSame([1, 2, 3, 4], $versions['readableManifestVersions']);
+        self::assertSame(['pdo', 'pdo_sqlite', 'sqlite3'], $versions['sqliteRecovery']['extensions']);
         self::assertFileExists($kit . '/docs/v4-format.md');
         self::assertFileExists($kit . '/library/src/V4Restorer.php');
         self::assertSame(0700, fileperms($kit) & 0777);
@@ -105,7 +124,7 @@ final class RecoveryKitTest extends TestCase
         $root = Fixture::temp();
         Fixture::write($root, 'sentinel', 'unchanged');
         $tools = dirname(__DIR__) . '/recovery';
-        $archive = dirname(Fixture::runtime()['age'], 2) . '/age.tar.gz';
+        $archive = getenv('WRB_TEST_AGE_ARCHIVE') ?: dirname(Fixture::runtime()['age'], 2) . '/age.tar.gz';
         [$exit] = $this->command([PHP_BINARY, $tools . '/build-kit.php', '--output', $root, '--age-archive', $archive]);
         self::assertNotSame(0, $exit);
         self::assertSame('unchanged', file_get_contents($root . '/sentinel'));

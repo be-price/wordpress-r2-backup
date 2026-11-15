@@ -212,6 +212,33 @@ final class V4RestorerTest extends TestCase
         }
     }
 
+    /** @dataProvider recoveryMetadataBackends */
+    public function testRecoveryStillRejectsCaseFoldedPathsBeforePublication(string $backend): void
+    {
+        $previous = getenv('WRB_RECOVERY_METADATA_BACKEND'); putenv('WRB_RECOVERY_METADATA_BACKEND=' . $backend);
+        $this->fixture('collision');
+        try {
+            $this->expectException(RuntimeException::class);
+            $this->expectExceptionMessage('V4 paths collide after Unicode normalization and case folding.');
+            $this->recover();
+        } finally {
+            putenv($previous === false ? 'WRB_RECOVERY_METADATA_BACKEND' : 'WRB_RECOVERY_METADATA_BACKEND=' . $previous);
+            self::assertDirectoryDoesNotExist($this->directory . '/restored');
+        }
+    }
+
+    /** @dataProvider recoveryMetadataBackends */
+    public function testAnExistingFoldRecordMustMatchTheEntireExpectedValue(string $backend): void
+    {
+        $map = \WordPressR2Backup\RecoveryMetadataMap::create($this->directory . '/fold-map', $backend);
+        $map->put('fold:roots', ['path' => 'roots', 'unexpected' => true]);
+        try {
+            $register = new \ReflectionMethod(V4Restorer::class, 'register'); $register->setAccessible(true);
+            $this->expectException(RuntimeException::class);
+            $register->invoke($this->restorer(), 'roots/r0001/a.txt', ['type' => 'file'], $map);
+        } finally { $map->close(); }
+    }
+
     public function testAllPackMembersAreAuthenticatedEvenWhenNotReferenced(): void
     {
         $this->fixture('extra');
@@ -229,12 +256,82 @@ final class V4RestorerTest extends TestCase
         }
     }
 
+    /** @dataProvider recoveryMetadataBackends */
+    public function testReferenceReturnsTheAuthenticatedMemberForItsImmediateRead(string $backend): void
+    {
+        $map = \WordPressR2Backup\RecoveryMetadataMap::create($this->directory . '/member-map', $backend);
+        $member = ['id' => hash('sha256', 'synthetic-id'), 'size' => 11, 'sha256' => hash('sha256', 'synthetic-bytes')];
+        $reference = $member + ['pack' => 'synthetic-pack'];
+        $map->put('member:synthetic-pack:' . $member['id'], $member);
+        try {
+            $method = new \ReflectionMethod(V4Restorer::class, 'reference'); $method->setAccessible(true);
+            self::assertSame($member, $method->invoke($this->restorer(), $reference, $map));
+            self::assertSame(['id' => $member['id']], $map->get('reference:' . $member['id']));
+        } finally { $map->close(); }
+    }
+
+    /** @dataProvider recoveryMetadataBackends */
+    public function testContentWithoutAnImmediateAuthenticatedMemberStillRejectsAMismatch(string $backend): void
+    {
+        $map = \WordPressR2Backup\RecoveryMetadataMap::create($this->directory . '/mismatched-member-map', $backend);
+        $member = ['id' => hash('sha256', 'synthetic-id'), 'size' => 11, 'sha256' => hash('sha256', 'synthetic-bytes')];
+        $reference = $member + ['pack' => 'synthetic-pack'];
+        $map->put('member:synthetic-pack:' . $member['id'], array_replace($member, ['size' => 12]));
+        try {
+            $method = new \ReflectionMethod(V4Restorer::class, 'content'); $method->setAccessible(true);
+            $this->expectException(RuntimeException::class);
+            $this->expectExceptionMessage('V4 content reference differs from its pack member.');
+            $method->invoke($this->restorer(), $reference, $map, $this->directory);
+        } finally { $map->close(); }
+    }
+
     public function testExclusionPolicyRejectsUnreferencedPackMembers(): void
     {
-        $this->fixture('extra'); $this->manifest['wordpress']['policy']['paths']['private'] = 'exclude';
+        $this->fixture('extra'); $this->manifest['wordpress']['policy']['preset'] = 'custom';
+        $this->manifest['wordpress']['policy']['paths']['private'] = 'exclude';
         $this->manifest['wordpress']['policySha256'] = hash('sha256', V4Format::json($this->manifest['wordpress']['policy']));
         $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Excluded v4 snapshot contains unreferenced pack content.');
         $this->restorer()->inspect($this->manifest, $this->identity(), $this->directory);
+    }
+
+    public static function referenceCountCases(): array { return [['files', false], ['sqlite', false], ['files', true], ['sqlite', true]]; }
+
+    /** @dataProvider referenceCountCases */
+    public function testRecoveryRejectsAReferenceCountMismatchBeforePublication(string $backend, bool $excluded): void
+    {
+        $previous = getenv('WRB_RECOVERY_METADATA_BACKEND'); putenv('WRB_RECOVERY_METADATA_BACKEND=' . $backend);
+        if ($excluded) {
+            $this->fixture('extra'); $this->manifest['wordpress']['policy']['preset'] = 'custom';
+            $this->manifest['wordpress']['policy']['paths']['private'] = 'exclude';
+            $this->manifest['wordpress']['policySha256'] = hash('sha256', V4Format::json($this->manifest['wordpress']['policy']));
+        }
+        ++$this->manifest['counts']['contents'];
+        try {
+            $this->expectException(RuntimeException::class);
+            $this->expectExceptionMessage('V4 referenced content count differs.');
+            $this->recover();
+        } finally {
+            self::assertDirectoryDoesNotExist($this->directory . '/restored');
+            putenv($previous === false ? 'WRB_RECOVERY_METADATA_BACKEND' : 'WRB_RECOVERY_METADATA_BACKEND=' . $previous);
+        }
+    }
+
+    /** @dataProvider recoveryMetadataBackends */
+    public function testRecoveryWithExclusionsRejectsHiddenUnreferencedContentBeforePublication(string $backend): void
+    {
+        $previous = getenv('WRB_RECOVERY_METADATA_BACKEND'); putenv('WRB_RECOVERY_METADATA_BACKEND=' . $backend);
+        $this->fixture('extra'); $this->manifest['wordpress']['policy']['preset'] = 'custom';
+        $this->manifest['wordpress']['policy']['paths']['private'] = 'exclude';
+        $this->manifest['wordpress']['policySha256'] = hash('sha256', V4Format::json($this->manifest['wordpress']['policy']));
+        try {
+            $this->expectException(RuntimeException::class);
+            $this->expectExceptionMessage('Excluded v4 snapshot contains unreferenced pack content.');
+            $this->recover();
+        } finally {
+            self::assertDirectoryDoesNotExist($this->directory . '/restored');
+            putenv($previous === false ? 'WRB_RECOVERY_METADATA_BACKEND' : 'WRB_RECOVERY_METADATA_BACKEND=' . $previous);
+        }
     }
 
     public function testResumeRejectsModifiedCompletedFileAndAddedHardLinks(): void
