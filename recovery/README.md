@@ -59,7 +59,7 @@ php recovery/build-kit.php \
 
 生成処理はComposerの`install --no-dev --no-scripts --no-plugins`で本番用の読み込み設定を作ります。Composerの既定位置は`/opt/homebrew/bin/composer`です。別の位置なら`--composer /absolute/path/to/composer`を指定します。
 
-出力先の権限は所有者専用の`0700`です。`recover.php`、`library/src/`、`library/vendor/`、`dependencies/age/age`と公式ライセンス、`docs/format-and-design.md`、`docs/v4-format.md`、このREADMEを含みます。`dependencies/versions.json`は取得元・配布物の照合値・必要環境を記録します。`readableManifestVersions: [1, 2, 3, 4]`は、新規キットが読める目録の版です。既存キットは変更しません。v4には、この対応版を記録した新しいキットを使います。`SHA256SUMS.json`は各同梱ファイルのSHA-256を記録します。この一覧自体のハッシュは、保管先と別の信頼できる場所に記録してください。
+出力先の権限は所有者専用の`0700`です。`recover.php`・`recover-web.php`・`local-router.php`、`library/`内の実装・依存物・画面資産・復元ワーカー・ライセンス、`dependencies/age/age`と公式ライセンス、`docs/format-and-design.md`・`docs/v4-format.md`、このREADMEを含みます。`dependencies/versions.json`は取得元・配布物の照合値・必要環境を記録します。`readableManifestVersions: [1, 2, 3, 4]`は、新規キットが読める目録の版です。既存キットは変更しません。v4には、この対応版を記録した新しいキットを使います。`SHA256SUMS.json`は各同梱ファイルのSHA-256を記録します。この一覧自体のハッシュは、保管先と別の信頼できる場所に記録してください。
 
 `dependencies/versions.json`の`sqliteRecovery.extensions`は、SQLiteへの取込と任意の起動用コピー作成に必要なPHP拡張の一覧です。取込には`pdo`・`pdo_sqlite`、起動用コピーのDB複製には追加で`sqlite3`が必要です。これらは実行先で用意する拡張であり、キットへの同梱や、生成時の動作確認済みを意味しません。保存されたバックアップの目録とは別の、キットの必要環境の記録です。
 
@@ -242,7 +242,7 @@ php recover.php rebuild-index \
 
 標準復元は従来どおりMySQL／MariaDBの新しい空DBを使います。大きなDBで操作の既定期限300秒を超える場合だけ、`--mysql-timeout 3600`のように秒数を明示します。1〜86400秒に限定し、接続期限と取得元の読み取りロック期限は延長しません。失敗したDBへ再取込せず、新しい空DBを指定します。
 
-簡易復元はMySQLサーバーを使わず、PHPとSQLiteでWordPressをローカル起動する方式です。一時索引のSQLite化とは別機能です。v4だけに対応し、旧形式や既存SQLiteファイルへの取込・SQLiteのresumeは拒否します。所有者専用0700の親ディレクトリと、まだ存在しないSQLiteファイルのパスを指定します。ファイルは製品が0600で新規作成します。取込にはPHPの`pdo`・`pdo_sqlite`と同梱のWordPress公式SQLite互換層、後述の起動用コピー作成には追加で`sqlite3`が必要です。暗号文の復号には従来どおりageが必要です。
+簡易復元はMySQLサーバーを使わず、PHPとSQLiteでWordPressをローカル起動する方式です。一時索引のSQLite化とは別機能です。v4だけに対応し、旧形式や既存SQLiteファイルへの取込・SQLiteのresumeは拒否します。所有者専用0700の親ディレクトリと、まだ存在しないSQLiteファイルのパスを指定します。ファイルは製品が0600で新規作成します。取込にはPHPの`pdo`・`pdo_sqlite`と同梱のWordPress公式SQLite互換層、後述の起動用コピー作成には追加で`sqlite3`が必要です。暗号文の復号には従来どおりageが必要です。 SQLiteではAPIからの再開も拒否し、中断時は新しい空DBと復元先でやり直します。再開に使わない内部台帳は一時扱いにしますが、復元ファイル自体の同期と全件照合は維持します。
 
 大きな表の全値照合では、SQLiteの並べ替え用一時領域にも十分な空き容量が必要です。小容量の一時メモリー領域では、値が正しくてもSQLiteコード13（作業容量不足）で停止する場合があります。必要な場合は、PHPの起動前に`SQLITE_TMPDIR`でWeb公開領域外の所有者専用0700ディスク領域を指定し、鍵を扱う一時領域とは分離します。ここには復号済みの行データが一時保存され得るため、公開・共有せず、終了後の残留も確認してください。age秘密鍵用の一時領域を変える必要はありません。照合失敗を成功へ読み替えたり、失敗したSQLiteファイルへ再取込したりしません。
 

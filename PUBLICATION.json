@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "sourceCommit": "a7551074328383bf76aa058bfb7f7df6aa5b92be",
+    "sourceCommit": "972fc73c4c65ac12d655c12b4896aee297761080",
     "files": [
         {
             "path": ".gitignore",
@@ -252,7 +252,7 @@
         },
         {
             "path": "recovery/README.md",
-            "sha256": "69c1d5af9decccd033d542d32c04045af471e76ac8de5807ab4df42b6361ae30"
+            "sha256": "4db4dc5f445e0ed2830cc580abf5b7acecb2d1c396fca6cbe5ed115033e4a240"
         },
         {
             "path": "recovery/build-kit.php",
@@ -440,7 +440,7 @@
         },
         {
             "path": "src/Restorer.php",
-            "sha256": "b081ee16aba99ff6d218eaa0e4cbdd345596cc82306c8dcdbfcdf24575fe9246"
+            "sha256": "bc7fced55c16cc09cc4c7ca2483ebf1823943789ea93316a27cc00b027da13c0"
         },
         {
             "path": "src/RunningSiteFiles.php",
@@ -528,7 +528,7 @@
         },
         {
             "path": "src/V4Restorer.php",
-            "sha256": "7e039707cf4d87239b7e8dea34f376fcb179de760aed7bd94179301833e5483a"
+            "sha256": "438ba86869772ea079919231662d12656083df3a3295233ef18e30da1b2bac65"
         },
         {
             "path": "src/WordPressAdmin.php",
@@ -1048,7 +1048,7 @@
         },
         {
             "path": "tests/V4RestorerTest.php",
-            "sha256": "9d6fbfc865870046c7412e0f1ca40c4bb9be0b0646169a350bd7bb2a031883ff"
+            "sha256": "d7581be07ae268692eb4d16eb0853fef78c64da92541bce518122db87a52b558"
         },
         {
             "path": "tests/V4ScaleTest.php",

@@ -20,6 +20,7 @@ final class V4Restorer
 
     public function recover(array $manifest, array $receipt, $input, string $destination, ?RecoveryDatabase $database, ?string $schema, bool $resume, ?callable $summary = null, ?string $localMediaDryRunPrefix = null, ?callable $phaseListener = null): array
     {
+        if ($resume && $database instanceof SqliteDatabaseClient) { throw new RuntimeException('SQLite recovery cannot be resumed; use a fresh destination.'); }
         $this->phaseListener = $phaseListener;
         $this->manifest($manifest);
         V4Format::validateReceipt($receipt);
@@ -53,7 +54,7 @@ final class V4Restorer
                 $ledger = MetadataMap::open($workspace . '/publication');
             } else {
                 $state = ['binding' => $binding, 'destination' => null, 'database' => 'pending'];
-                $ledger = MetadataMap::create($workspace . '/publication');
+                $ledger = $database instanceof SqliteDatabaseClient ? MetadataMap::createProcessLocal($workspace . '/publication') : MetadataMap::create($workspace . '/publication');
                 $this->saveState($workspace, $state);
             }
             if ($state['destination'] !== null) {

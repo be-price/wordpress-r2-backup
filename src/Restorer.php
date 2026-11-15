@@ -23,6 +23,7 @@ final class Restorer
 
     public function resume(string $snapshotId, $identityStream, string $newDestination, ?RecoveryDatabase $database = null, ?string $newDatabase = null, ?callable $captureSummary = null, ?string $localMediaDryRunPrefix = null): array
     {
+        if ($database instanceof SqliteDatabaseClient) { throw new RuntimeException('SQLite recovery cannot be resumed; use a fresh destination.'); }
         return $this->routeRecovery($snapshotId, $identityStream, $newDestination, $database, $newDatabase, true, $captureSummary, $localMediaDryRunPrefix);
     }
 

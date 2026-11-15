@@ -7,6 +7,10 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use WordPressR2Backup\AgeProcess;
 use WordPressR2Backup\Manifest;
+use WordPressR2Backup\MetadataMap;
+use WordPressR2Backup\Restorer;
+use WordPressR2Backup\SqliteDatabaseClient;
+use WordPressR2Backup\WordPressDatabase;
 use WordPressR2Backup\ObjectReader;
 use WordPressR2Backup\V4Format;
 use WordPressR2Backup\V4Pack;
@@ -138,6 +142,81 @@ final class V4RestorerTest extends TestCase
             self::assertNotNull($replacement); self::assertSame('keep', file_get_contents($replacement . '/unowned'));
             self::assertDirectoryDoesNotExist($this->directory . '/restored');
         } finally { fclose($identity); }
+    }
+
+    public function testInitialSqliteRecoveryCompletesWithANonReopenablePublicationLedger(): void
+    {
+        $this->fixture('sqlite'); $client = $this->sqliteClient(); $identity = $this->identity(); $called = false;
+        try {
+            $result = $this->restorer()->recover($this->manifest, $this->receipt, $identity, $this->directory . '/restored', $client, 'sqlite', false, function () use (&$called): void {
+                $called = true; $ledgers = glob($this->directory . '/.wrb-v4-*/publication'); self::assertCount(1, $ledgers);
+                $rejected = false;
+                try { MetadataMap::open($ledgers[0]); } catch (RuntimeException $error) { $rejected = true; self::assertSame('Invalid metadata map identity.', $error->getMessage()); }
+                self::assertTrue($rejected, 'A SQLite publication ledger must not be reopenable.');
+            });
+            self::assertTrue($called); self::assertTrue($result['databaseImported']); self::assertSame(2, $result['files']);
+            self::assertSame('hello world', file_get_contents($this->directory . '/restored/roots/r0001/a.txt'));
+            self::assertSame(0400, fileperms($this->directory . '/restored/roots/r0001/a.txt') & 0777);
+            self::assertSame([], glob($this->directory . '/.wrb-v4-*'));
+        } finally { fclose($identity); $client->close(); }
+    }
+
+    public function testBothSqliteResumeEntrypointsRejectTheSameLiveClientWithoutChangingFailedPublication(): void
+    {
+        $this->fixture('sqlite'); $client = $this->sqliteClient(); $identity = $this->identity();
+        $destination = $this->directory . '/restored'; $key = $this->secondPage;
+        $this->reader->failure = static function (string $downloaded, int $count) use ($key): void {
+            if ($downloaded === $key && $count === 2) { throw new RuntimeException('Synthetic SQLite publication interruption.'); }
+        };
+        try {
+            $interrupted = false;
+            try { $this->restorer()->recover($this->manifest, $this->receipt, $identity, $destination, $client, 'sqlite', false); }
+            catch (RuntimeException $error) { $interrupted = true; self::assertSame('Synthetic SQLite publication interruption.', $error->getMessage()); }
+            self::assertTrue($interrupted);
+            $stateFile = glob($this->directory . '/.wrb-v4-*/state.json')[0]; $state = file_get_contents($stateFile);
+            $sentinel = $destination . '/roots/r0001/a.txt'; $inode = fileinode($sentinel); self::assertSame('hello world', file_get_contents($sentinel));
+            $downloads = $this->reader->downloads; $completed = $this->reader->completedCalls; $this->reader->failure = null;
+            foreach (['public-api', 'direct-v4'] as $entrypoint) {
+                rewind($identity); $rejected = false;
+                try {
+                    if ($entrypoint === 'public-api') { (new Restorer($this->age, $this->reader))->resume($this->manifest['snapshotId'], $identity, $destination, $client, 'sqlite'); }
+                    else { $this->restorer()->recover($this->manifest, $this->receipt, $identity, $destination, $client, 'sqlite', true); }
+                } catch (RuntimeException $error) { $rejected = true; self::assertSame('SQLite recovery cannot be resumed; use a fresh destination.', $error->getMessage()); }
+                self::assertTrue($rejected); self::assertSame(0, ftell($identity));
+                self::assertSame($state, file_get_contents($stateFile)); self::assertSame($inode, fileinode($sentinel)); self::assertSame('hello world', file_get_contents($sentinel));
+                self::assertSame($downloads, $this->reader->downloads); self::assertSame($completed, $this->reader->completedCalls);
+            }
+            rewind($identity); $rejected = false;
+            try { $this->restorer()->recover($this->manifest, $this->receipt, $identity, $destination, $client, 'sqlite', false); }
+            catch (RuntimeException $error) { $rejected = true; self::assertStringContainsString('V4 recovery requires a new destination', $error->getMessage()); }
+            self::assertTrue($rejected); self::assertSame($state, file_get_contents($stateFile)); self::assertSame('hello world', file_get_contents($sentinel));
+            $this->expectException(RuntimeException::class); $this->expectExceptionMessage('Invalid metadata map identity.');
+            MetadataMap::open(dirname($stateFile) . '/publication');
+        } finally { fclose($identity); $client->close(); }
+    }
+
+    public static function durableDatabaseModes(): array { return [['none'], ['mysql']]; }
+
+    /** @dataProvider durableDatabaseModes */
+    public function testNonSqlitePublicationLedgersRemainDurable(string $mode): void
+    {
+        // Never connect to a MySQL server: stop at the summary callback before any database method is reached.
+        $database = $mode === 'mysql' ? (new \ReflectionClass(\WordPressR2Backup\MysqlClient::class))->newInstanceWithoutConstructor() : null;
+        $identity = $this->identity(); $called = false;
+        try {
+            $this->expectException(RuntimeException::class); $this->expectExceptionMessage('Synthetic durable ledger probe completed.');
+            $this->restorer()->recover($this->manifest, $this->receipt, $identity, $this->directory . '/restored', $database, $database === null ? null : 'wrb_test_synthetic', false, function () use (&$called): void {
+                $called = true; $ledgers = glob($this->directory . '/.wrb-v4-*/publication'); self::assertCount(1, $ledgers);
+                self::assertNull(MetadataMap::open($ledgers[0])->get('absent'));
+                throw new RuntimeException('Synthetic durable ledger probe completed.');
+            });
+        } finally { fclose($identity); self::assertTrue($called); self::assertDirectoryDoesNotExist($this->directory . '/restored'); }
+    }
+
+    private function sqliteClient(): SqliteDatabaseClient
+    {
+        require_once dirname(__DIR__) . '/dependencies/sqlite-database-integration/wp-includes/database/load.php';
+        return new SqliteDatabaseClient($this->directory . '/synthetic.sqlite');
     }
 
     public function testInspectionDecryptsPagesAndChecksPackReceiptsWithoutReadingPackBodies(): void
@@ -467,7 +546,9 @@ final class V4RestorerTest extends TestCase
     {
         $snapshot = hash('sha256', 'synthetic-' . $variant); $recipients = array_column($this->keys, 'public');
         $scope = ['accountId' => str_repeat('b', 32), 'bucket' => 'fixture-bucket', 'unitId' => $this->reader->unitId(), 'keySetId' => Manifest::keySetId($recipients), 'encoding' => V4Format::ENCODING];
-        $text = $this->content('hello world'); $sql = $this->content("SELECT 1;\n"); $members = [$text, $sql];
+        $create = 'CREATE TABLE `wp_probe` (`id` bigint unsigned NOT NULL,PRIMARY KEY (`id`)) ENGINE=InnoDB';
+        $sqlBytes = $variant === 'sqlite' ? $create . ";\nINSERT INTO `wp_probe` (`id`) VALUES (1);\n" : "SELECT 1;\n";
+        $text = $this->content('hello world'); $sql = $this->content($sqlBytes); $members = [$text, $sql];
         if ($variant === 'extra') { $members[] = $this->content('old unreferenced content'); }
         $pack = V4Pack::write($this->age, $recipients, $this->directory, V4Format::scopeId($scope), 'code', $members);
         if ($variant === 'pack-mismatch') { $other = $this->content('different declared content'); unset($other['bytes']); $pack['descriptor']['members'][0] = $other; }
@@ -507,7 +588,13 @@ final class V4RestorerTest extends TestCase
         if ($variant === 'zero') { $first[0]['mode'] = 0; }
         $pages = [$this->page($snapshot, 'packs', 0, [$pack['descriptor']]), $this->page($snapshot, 'filesystem', 0, $first), $this->page($snapshot, 'filesystem', 1, $variant === 'single' ? $second : array_slice($second, 0, 2))];
         if ($variant !== 'single') { $pages[] = $this->page($snapshot, 'filesystem', 2, array_slice($second, 2)); }
-        $pages[] = $this->page($snapshot, 'database', 0, [['type' => 'sql', 'stage' => 'preamble', 'name' => 'database', 'content' => $sqlRef]]);
+        $databaseRecords = [['type' => 'sql', 'stage' => 'preamble', 'name' => 'database', 'content' => $sqlRef]];
+        if ($variant === 'sqlite') {
+            $databaseRecords[] = ['type' => 'table', 'name' => 'wp_probe', 'rows' => 1, 'sourceRows' => 1, 'excludedRows' => 0,
+                'definitionSha256' => WordPressDatabase::definitionSha256($create, ''), 'rowSha256' => hash('sha256', hash('sha256', 'V1:1;') . "\n"),
+                'columns' => ['id'], 'order' => ['id'], 'foreignKeys' => []];
+        }
+        $pages[] = $this->page($snapshot, 'database', 0, $databaseRecords);
         $this->secondPage = $pages[$variant === 'single' ? 2 : 3]['object']['key'];
         $policy = ['version' => 2, 'preset' => 'full'];
         $this->manifest = ['format' => 'wordpress-r2-backup', 'version' => 4, 'dataClass' => 'wordpress', 'unitId' => $scope['unitId'], 'snapshotId' => $snapshot, 'keySetId' => $scope['keySetId'], 'recipients' => $recipients, 'capturedAt' => '2026-10-30T00:00:00Z', 'encoding' => V4Format::ENCODING, 'scope' => $scope, 'roots' => [['id' => 'r0001', 'name' => 'r0001', 'sourcePath' => '/does-not-exist/source', 'type' => 'directory', 'mode' => 0750]], 'pages' => $pages, 'counts' => ['files' => 2, 'directories' => 1, 'links' => 1, 'contents' => 2, 'packs' => 1, 'databaseBytes' => strlen($sql['bytes']), 'fileBytes' => 22], 'database' => ['size' => strlen($sql['bytes']), 'sha256' => $sql['sha256'], 'tableCount' => 0, 'events' => [], 'environment' => ['serverVersion' => '8.0.40', 'sqlMode' => '', 'timeZone' => '+00:00', 'characterSet' => 'utf8mb4', 'collation' => 'utf8mb4_bin']], 'wordpress' => ['siteUrl' => 'https://synthetic.invalid', 'policySha256' => hash('sha256', V4Format::json($policy)), 'policy' => $policy, 'evidence' => []]];
@@ -523,6 +610,7 @@ final class V4RestorerTest extends TestCase
             $this->manifest['counts']['links'] = in_array($variant, ['media-link-target', 'media-link-traversal'], true) ? 3 : 2;
             $this->manifest['roots'][] = ['id' => 'r0002', 'name' => 'r0002', 'sourcePath' => '/does-not-exist/other-source', 'type' => 'directory', 'mode' => 0700];
         }
+        if ($variant === 'sqlite') { $this->manifest['database']['tableCount'] = 1; }
         $this->receipt = ['key' => 'manifests/' . $snapshot . '.age', 'bytes' => 1, 'sha256' => hash('sha256', V4Format::json($this->manifest))];
     }
 
