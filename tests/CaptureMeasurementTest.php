@@ -24,7 +24,9 @@ final class CaptureMeasurementTest extends TestCase
         'scanCollectedContents', 'lockWaitMs', 'lockContextMs', 'databasePrepassMs', 'databasePrepassBytes', 'filesPrepassMs', 'filesPrepassFiles',
         'filesPrepassBytes', 'databaseCaptureMs', 'databaseCaptureBytes', 'filesCaptureMs', 'filesCaptureFiles', 'filesCaptureBytes', 'filesFinalMs',
         'filesFinalEntries', 'lockHeldMs', 'lockReleaseMs', 'finishMs', 'sharedVerifyMs', 'sharedVerifyCalls', 'sharedVerifyPacks', 'sharedVerifyBytes',
-        'encryptMs', 'encryptCalls', 'encryptPlainBytes', 'objects', 'totalMs'];
+        'encryptMs', 'encryptCalls', 'encryptPlainBytes', 'objects', 'totalMs',
+        'scanFilesReadMs', 'scanFilesIndexMs', 'filesCaptureReadMs', 'filesCaptureIndexMs', 'filesCaptureAssemblyMs',
+        'filesFinalReadMs', 'filesFinalIndexMs', 'filesPrepassReadMs', 'filesPrepassIndexMs'];
 
     protected function tearDown(): void { Fixture::cleanup(); }
 
@@ -43,6 +45,15 @@ final class CaptureMeasurementTest extends TestCase
         self::assertSame([], array_diff(array_keys($measured), self::CAPTURE_FIELDS), 'only the fixed fields');
         foreach ($measured as $name => $value) { self::assertIsInt($value, $name); self::assertGreaterThanOrEqual(0, $value, $name); }
         foreach (['scanMs', 'lockWaitMs', 'lockHeldMs', 'databaseCaptureMs', 'filesCaptureMs', 'filesFinalMs', 'finishMs', 'encryptMs', 'totalMs'] as $name) { self::assertArrayHasKey($name, $measured); }
+        $components = [
+            'scanMs' => ['scanFilesReadMs', 'scanFilesIndexMs'],
+            'filesCaptureMs' => ['filesCaptureReadMs', 'filesCaptureIndexMs', 'filesCaptureAssemblyMs'],
+            'filesFinalMs' => ['filesFinalReadMs', 'filesFinalIndexMs'],
+        ];
+        foreach ($components as $phase => $names) {
+            foreach ($names as $name) { self::assertArrayHasKey($name, $measured); }
+            self::assertLessThanOrEqual($measured[$phase], array_sum(array_intersect_key($measured, array_flip($names))), $phase);
+        }
         self::assertSame(1, $measured['version']);
         self::assertSame($result['manifest']['counts']['files'], $measured['filesCaptureFiles']);
         self::assertSame($result['manifest']['counts']['fileBytes'], $measured['filesCaptureBytes']);

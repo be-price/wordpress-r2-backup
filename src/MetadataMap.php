@@ -88,9 +88,10 @@ final class MetadataMap
         $this->cachedBitmapBytes = ''; $this->cachedBitmapBits = '';
     }
 
-    public function get(string $key): ?array
+    /** Reports whether the on-disk partition exists even when the key has no stored record. */
+    public function get(string $key, ?bool &$partitionInitialized = null): ?array
     {
-        try { return $this->verifiedGet($key); }
+        try { return $this->verifiedGet($key, $partitionInitialized); }
         catch (\Throwable $error) { $this->invalidateCache(); throw $error; }
     }
 
@@ -100,16 +101,69 @@ final class MetadataMap
         catch (\Throwable $error) { $this->invalidateCache(); throw $error; }
     }
 
+    /** Inserts new records by leaf in a process-local map. Values are encoded by the bounded capture buffer. */
+    public function putProcessLocalBatch(array $values, ?callable $heartbeat = null): void
+    {
+        if ($this->durable) { throw new RuntimeException('Metadata batches require a process-local map.'); }
+        try {
+            $buckets = [];
+            foreach ($values as $key => $ignored) {
+                $hash = self::keyHash($key);
+                $prefix = substr($hash, 0, self::PREFIX_LENGTH);
+                if (isset($buckets[$prefix][$hash])) { throw new RuntimeException('Metadata identity collision.'); }
+                $buckets[$prefix][$hash] = $key;
+            }
+            $limit = min(262144, $this->maximumBytes - 256);
+            $nextHeartbeat = hrtime(true) + 1000000000;
+            foreach ($buckets as $prefix => $keys) {
+                $prefix = (string) $prefix;
+                $this->guard();
+                $bits = $this->bitmap();
+                $initialized = self::marked($bits, $prefix);
+                $leaves = [$prefix => $keys];
+                if ($initialized && $this->isBranch($prefix)) {
+                    $leaves = [];
+                    foreach ($keys as $hash => $key) { $leaves[$this->partition($hash)][$hash] = $key; }
+                }
+                foreach ($leaves as $leaf => $leafKeys) {
+                    $leaf = (string) $leaf;
+                    $records = $initialized ? $this->leaf($leaf) : [];
+                    $changed = false;
+                    foreach ($leafKeys as $hash => $key) {
+                        $json = $values[$key];
+                        if (!is_string($json) || strlen($json) > $limit) { throw new RuntimeException('Metadata value exceeds its limit.'); }
+                        $value = json_decode($json, true, 16, JSON_THROW_ON_ERROR);
+                        if (!is_array($value)) { throw new RuntimeException('Invalid metadata value.'); }
+                        if (isset($records[$hash])) {
+                            if ($records[$hash]['key'] !== $key) { throw new RuntimeException('Metadata identity collision.'); }
+                            if ($records[$hash]['value'] !== $value) { throw new RuntimeException('Metadata key is already assigned.'); }
+                            continue;
+                        }
+                        $records[$hash] = ['key' => $key, 'value' => $value];
+                        $changed = true;
+                    }
+                    if ($changed) { $this->persist($leaf, $records); }
+                }
+                if (!$initialized) { $this->markPartition($bits, $prefix); }
+                if ($heartbeat !== null && hrtime(true) >= $nextHeartbeat) {
+                    $heartbeat();
+                    $nextHeartbeat = hrtime(true) + 1000000000;
+                }
+            }
+        } catch (\Throwable $error) { $this->invalidateCache(); throw $error; }
+    }
+
     public function entries(): \Generator
     {
         try { yield from $this->verifiedEntries(); }
         catch (\Throwable $error) { $this->invalidateCache(); throw $error; }
     }
-    private function verifiedGet(string $key): ?array
+    private function verifiedGet(string $key, ?bool &$partitionInitialized): ?array
     {
         $hash = self::keyHash($key);
         $this->guard();
-        if (!self::marked($this->bitmap(), $hash)) { return null; }
+        $partitionInitialized = self::marked($this->bitmap(), $hash);
+        if (!$partitionInitialized) { return null; }
         $records = $this->leaf($this->partition($hash));
         if (!isset($records[$hash])) { return null; }
         if ($records[$hash]['key'] !== $key) { throw new RuntimeException('Metadata identity collision.'); }
@@ -133,11 +187,7 @@ final class MetadataMap
         }
         $records[$hash] = ['key' => $key, 'value' => $value];
         $this->persist($prefix, $records);
-        if (!$initialized) {
-            $index = hexdec(substr($hash, 0, self::PREFIX_LENGTH));
-            $offset = intdiv($index, 8); $bits[$offset] = chr(ord($bits[$offset]) | (1 << ($index % 8)));
-            $this->saveBitmap($bits);
-        }
+        if (!$initialized) { $this->markPartition($bits, $hash); }
     }
 
     private function verifiedEntries(): \Generator
@@ -274,6 +324,14 @@ final class MetadataMap
     {
         $index = hexdec(substr($hash, 0, self::PREFIX_LENGTH));
         return (ord($bits[intdiv($index, 8)]) & (1 << ($index % 8))) !== 0;
+    }
+
+    private function markPartition(string $bits, string $hash): void
+    {
+        $index = hexdec(substr($hash, 0, self::PREFIX_LENGTH));
+        $offset = intdiv($index, 8);
+        $bits[$offset] = chr(ord($bits[$offset]) | (1 << ($index % 8)));
+        $this->saveBitmap($bits);
     }
 
     private function bitmap(): string
