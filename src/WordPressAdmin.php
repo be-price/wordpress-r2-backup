@@ -77,7 +77,7 @@ final class WordPressAdmin
         }
         add_action('admin_enqueue_scripts', static function (string $hook) use ($pluginFile): void {
             if ($hook === 'tools_page_' . self::PAGE || $hook === 'toplevel_page_' . self::PAGE) {
-                wp_enqueue_style('wrb-synthetic-admin', plugins_url('assets/admin.css', $pluginFile), [], '0.6.1');
+                wp_enqueue_style('wrb-synthetic-admin', plugins_url('assets/admin.css', $pluginFile), [], '0.6.3');
             }
         });
     }
