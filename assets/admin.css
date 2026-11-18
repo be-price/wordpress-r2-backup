@@ -186,3 +186,36 @@
 .wrb-live .wrb-history-disclosure summary { cursor: pointer; font-weight: 600; }
 .wrb-live .wrb-history-disclosure ul { list-style: disc; margin: 8px 0 0 1.3em; }
 .wrb-live .wrb-history-disclosure code { white-space: normal; overflow-wrap: anywhere; }
+
+.wrb-schedule-rules {
+    list-style: decimal;
+    margin: 1em 0 1em 2em;
+}
+.wrb-schedule-rules > li {
+    position: relative;
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+    background: #f6f7f7;
+}
+.wrb-rule-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+.wrb-rule-actions { margin-inline-start: auto; }
+.wrb-rule-grip { cursor: grab; width: 20px; height: 20px; }
+.wrb-schedule-rules input[type="text"] { max-width: 100%; }
+.wrb-schedule-rules [data-wrb-dragging] { opacity: .5; }
+.wrb-schedule-rules [data-wrb-drop]::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    height: 3px;
+    background: #2271b1;
+    pointer-events: none;
+}
+.wrb-schedule-rules [data-wrb-drop="before"]::after { top: -6px; }
+.wrb-schedule-rules [data-wrb-drop="after"]::after { bottom: -6px; }

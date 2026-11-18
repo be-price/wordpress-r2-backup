@@ -11,6 +11,7 @@ final class LiveAdmin
         add_action('admin_enqueue_scripts', static function (string $hook) use ($pluginFile): void {
             if (!in_array($hook, ['tools_page_' . WordPressAdmin::PAGE, 'toplevel_page_' . WordPressAdmin::PAGE], true) || defined('WRB_SYNTHETIC_RUNTIME_PROFILE')) { return; }
             wp_enqueue_script('wrb-live', plugins_url('assets/live.js', $pluginFile), [], '0.6.3', true);
+            wp_enqueue_script('wrb-schedule-rules', plugins_url('assets/schedule-rules.js', $pluginFile), [], '1', true);
             wp_localize_script('wrb-live', 'wrbLive', ['url' => admin_url('admin-ajax.php'), 'nonce' => wp_create_nonce('wrb_live')]);
         });
     }
@@ -101,9 +102,15 @@ final class LiveAdmin
                 $enabled = self::post('scheduleEnabled', 1); $weekday = self::post('scheduleWeekday', 1);
                 if (!in_array($enabled, ['', '1'], true) || ($weekday !== '' && !preg_match('/\A[1-7]\z/D', $weekday))) { throw new \InvalidArgumentException('定期実行の設定が不正です。'); }
                 $frequency = self::post('scheduleFrequency', 6);
-                BackupScheduler::save(['enabled' => $enabled === '1', 'frequency' => $frequency,
+                $schedule = ['enabled' => $enabled === '1', 'frequency' => $frequency,
                     'time' => self::post('scheduleTime', 5), 'weekday' => $frequency === 'weekly' && $weekday !== '' ? (int) $weekday : null,
-                    'mode' => self::post('scheduleMode', 11)]);
+                    'mode' => self::post('scheduleMode', 11)];
+                if (array_key_exists('scheduleRulesComplete', $_POST) || array_key_exists('scheduleRules', $_POST)) {
+                    if (self::post('scheduleRulesComplete', 1) !== '1') { throw new \InvalidArgumentException('定期実行ルールをすべて受信できませんでした。'); }
+                    $raw = $_POST['scheduleRules'] ?? null;
+                    $schedule['rules'] = ScheduleRules::validate(is_array($raw) ? wp_unslash($raw) : null);
+                }
+                BackupScheduler::save($schedule);
                 $notice = '定期実行の設定を保存しました。サーバー側の起動状況は定期バックアップの欄で、各回の結果は実行履歴で確認できます。';
             }
             elseif ($command === 'retention') {

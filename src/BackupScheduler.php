@@ -39,6 +39,7 @@ final class BackupScheduler
             throw new InvalidArgumentException('定期実行の設定が不正です。');
         }
         BackupSchedule::next($input['frequency'], $input['time'], $input['weekday'], wp_timezone(), new DateTimeImmutable('now', new DateTimeZone('UTC')));
+        if (array_key_exists('rules', $input)) { $input['rules'] = ScheduleRules::validate($input['rules']); }
         $workspace = LiveSettings::workspace();
         return self::withScheduleLock($workspace, static function () use ($workspace, $input): array {
             return self::withLock($workspace, 'operation.lock', static function () use ($input): array {
@@ -52,6 +53,10 @@ final class BackupScheduler
                 $new = ['enabled' => $input['enabled'], 'frequency' => $input['frequency'], 'time' => $input['time'],
                     'weekday' => $input['weekday'], 'mode' => $input['mode'], 'revision' => bin2hex(random_bytes(32)),
                     'effectiveSince' => $now->format('Y-m-d\TH:i:s\Z')];
+                wp_cache_delete('wrb_live_schedule', 'options');
+                $current = get_option('wrb_live_schedule', []);
+                if (isset($input['rules'])) { $new['rules'] = $input['rules']; }
+                elseif (is_array($current) && array_key_exists('rules', $current)) { $new['rules'] = ScheduleRules::validate($current['rules']); }
                 self::due($new, null, wp_timezone(), $now);
                 update_option('wrb_live_schedule', $new, false);
                 wp_cache_delete('wrb_live_schedule', 'options'); wp_cache_delete('notoptions', 'options');
@@ -93,6 +98,13 @@ final class BackupScheduler
         }
         $effective = self::timestamp($config['effectiveSince']);
         $last = $lastAttempt === null ? null : self::timestamp($lastAttempt);
+        if (array_key_exists('rules', $config)) {
+            ScheduleRules::validate($config['rules']);
+            if (!$config['enabled']) { return null; }
+            $lower = max($effective, $last ?? $effective, $now->modify('-121 seconds'));
+            $slot = ScheduleRules::next($config, $zone, $lower, $now);
+            return $slot === null ? null : $slot->format('Y-m-d\TH:i:s\Z');
+        }
         // Validate the recurrence even if currently disabled.
         $slot = BackupSchedule::next($config['frequency'], $config['time'], $config['weekday'], $zone, $now->modify('-121 seconds'));
         if (!$config['enabled'] || $slot > $now || $slot <= $effective || ($last !== null && $slot <= $last)) { return null; }
@@ -118,6 +130,16 @@ final class BackupScheduler
         }
         $cutoff = $now->modify('-121 seconds');
         if ($lower >= $cutoff) { return null; }
+        if (array_key_exists('rules', $config)) {
+            // Search newest days first, bounding work for minute-level rules.
+            for ($day = $cutoff, $i = 0; $day > $lower && $i < 370; ++$i, $day = $start) {
+                $start = max($lower, $day->modify('-1 day'));
+                $latest = null;
+                while (($next = ScheduleRules::next($config, $zone, $latest ?? $start, $day)) !== null) { $latest = $next; }
+                if ($latest !== null) { return $latest->format('Y-m-d\TH:i:s\Z'); }
+            }
+            return null;
+        }
         // An hourly schedule has a recent occurrence within three days even across DST changes.
         $start = $cutoff->modify($config['frequency'] === 'hourly' ? '-3 days' : '-370 days'); if ($lower > $start) { $start = $lower; }
         $latest = null;
