@@ -4,7 +4,7 @@ namespace WordPressR2Backup;
 
 final class LiveAdminView
 {
-    private const VIEWS = ['backup' => ['バックアップ', 'backup'], 'restore' => ['復元', 'undo'],
+    private const VIEWS = ['backup' => ['バックアップ設定', 'backup'], 'history' => ['バックアップ実行履歴', 'list-view'], 'restore' => ['復元', 'undo'],
         'storage' => ['ストレージ設定', 'cloud'], 'privacy' => ['保存範囲と除外設定', 'privacy'], 'settings' => ['保存期間と容量', 'admin-generic']];
     private const CATEGORIES = ['forms' => ['フォーム送信情報', '確認できた問い合わせ・申込の送信データ、添付、送信記録。フォーム定義は含みません。', 'format-chat'],
         'wordpress_users' => ['WordPressユーザー', '管理者・編集者などのユーザーとユーザーメタ情報。フォーム送信者とは別の分類です。', 'admin-users'],
@@ -20,11 +20,22 @@ final class LiveAdminView
         echo '<div class="wrap wrb-synthetic wrb-live"><header class="wrb-header"><p class="wrb-brand">R2 Backup <small>0.6.0</small></p><h1>' . esc_html(self::VIEWS[$view][0]) . '</h1>';
         echo '<nav class="wrb-nav" aria-label="R2 Backup">';
         foreach (self::VIEWS as $name => $item) {
-            echo '<a href="' . esc_url(LiveAdmin::url($name)) . '"' . ($view === $name ? ' aria-current="page"' : '') . '><span class="dashicons dashicons-' . esc_attr($item[1]) . '" aria-hidden="true"></span> ' . esc_html($item[0]) . '</a>';
+            echo '<a href="' . esc_url(LiveAdmin::url($name)) . '"' . ($view === $name ? ' aria-current="page"' : '') . '><span class="dashicons dashicons-' . esc_attr($item[1]) . '" aria-hidden="true"></span> ' . esc_html($name === 'history' ? '実行履歴' : $item[0]) . '</a>';
         }
         echo '</nav></header>';
-        $notice = get_option('wrb_live_notice', '');
-        if (is_string($notice) && $notice !== '') {
+        $history = null;
+        $historyAvailable = false;
+        $historyNotice = null;
+        try {
+            $history = LiveAdmin::history();
+            $historyNotice = LiveAdmin::historyNotice($history, $state);
+            $historyAvailable = true;
+        } catch (\Throwable $error) {
+            // Keep all backup controls usable if the history storage cannot be read.
+        }
+        LiveHistoryView::renderNotice($historyNotice, $historyAvailable);
+        $notice = LiveAdmin::takeOperationNotice();
+        if ($notice !== '') {
             $isError = strpos($notice, 'エラー: ') === 0;
             echo '<div class="notice ' . ($isError ? 'notice-error' : 'notice-info') . ' inline"' . ($isError ? ' role="alert"' : '') . '><p>' . esc_html($notice) . '</p></div>';
         }
@@ -34,7 +45,8 @@ final class LiveAdminView
             catch (\Throwable $error) { self::error($error->getMessage()); }
         }
         try {
-            if ($view === 'privacy') { self::privacy($settings, $busy); }
+            if ($view === 'history') { LiveHistoryView::render($history, $historyAvailable, $settings['policy'] ?? null); }
+            elseif ($view === 'privacy') { self::privacy($settings, $busy); }
             elseif ($view === 'storage') { self::storage($settings, $busy); }
             elseif ($view === 'settings') { self::settings($settings, $busy); }
             elseif ($view === 'restore') { self::restore($settings); }
@@ -227,6 +239,7 @@ final class LiveAdminView
         if (isset($public['sharing'])) { echo '<p>' . esc_html(self::sharingSummary($public['sharing'])) . '</p>'; }
         echo '</div><p class="wrb-muted" id="wrb-live-checked">この表示は画面を開いた時点の記録です。</p><div id="wrb-live-detail"></div></section>';
         echo '<section class="wrb-panel"><h2>バックアップを実行</h2><p>取得方法を選びます。取得後は暗号化済みデータをR2へ転送します。</p>';
+        echo '<p><a href="' . esc_url(add_query_arg('wrb_source', 'manual', LiveAdmin::url('history'))) . '">手動バックアップの実行履歴</a></p>';
         echo '<fieldset id="wrb-manual-mode"><legend>取得中のサイトの扱い</legend><p><label><input type="radio" name="wrb_manual_mode" value="maintenance" checked> <strong>保守あり — 整合性を優先</strong></label><br><span class="description">取得中はサイトを一時停止し、外部の書き込みも停止します。</span></p><p><label><input type="radio" name="wrb_manual_mode" value="online"> <strong>保守なし — サイトを公開したまま</strong></label><br><span class="description">DBとファイルの取得時点が異なる場合があります。検出できない変更は残る可能性があります。DB構造の変更は取得中に待機する場合があります。</span></p></fieldset>';
         echo '<div data-wrb-maintenance-confirm><p><label><input id="wrb-writers" type="checkbox"> 外部の定期処理・直接更新等の書き手を停止しました</label></p><p><label><input id="wrb-downtime" type="checkbox"> 取得中の一時的な保守状態を確認しました</label></p></div><div data-wrb-online-confirm hidden><p><label><input id="wrb-online-ack" type="checkbox"> DBとファイルの時点差が残る可能性を理解しました</label></p></div>';
         echo '<div class="wrb-actions"><button type="button" class="button button-primary" data-wrb-command="start" data-wrb-ready="' . ($ready ? '1' : '0') . '"' . ($busy || !$ready ? ' disabled' : '') . '>このサイトをバックアップ</button> <button type="button" class="button" data-wrb-command="step"' . (!$busy || ($state['status'] ?? '') !== 'uploading' ? ' disabled' : '') . '>暗号文の転送を再開</button></div>';
@@ -252,6 +265,10 @@ final class LiveAdminView
         $mode = in_array($schedule['mode'] ?? null, ['maintenance', 'online'], true) ? $schedule['mode'] : 'maintenance';
         $locked = $settings === null || ($state !== null && !in_array($state['status'] ?? '', ['complete', 'cancelled'], true));
         echo '<section class="wrb-panel" id="wrb-schedule"><h2>定期バックアップ</h2><p class="wrb-alert">定期実行は未準備の場合があります。設定保存だけではサーバーの定期実行は登録されません。サーバー側の設定と安全な取得条件を確認してください。保守ありの定期取得は現在準備中です。</p>';
+        $historyFilter = ['wrb_source' => 'scheduled'];
+        if (LiveHistoryView::validId($schedule['revision'] ?? null)) { $historyFilter['wrb_schedule_revision'] = $schedule['revision']; }
+        echo '<p><a href="' . esc_url(add_query_arg($historyFilter, LiveAdmin::url('history'))) . '">'
+            . (isset($historyFilter['wrb_schedule_revision']) ? 'この定期設定の実行履歴' : '定期バックアップの実行履歴') . '</a></p>';
         if ($locked) { echo '<p>接続設定を保存し、未完了のバックアップを終了または取り消すと、予定を編集できます。</p>'; }
         LiveAdmin::form('schedule');
         echo '<fieldset' . ($locked ? ' disabled' : '') . '><legend>定期実行の設定</legend><p><label><input type="checkbox" name="scheduleEnabled" value="1"' . (($schedule['enabled'] ?? false) === true ? ' checked' : '') . '> 定期バックアップの予定を有効にする</label></p>';
@@ -283,6 +300,7 @@ final class LiveAdminView
         }
         if ($seen !== null) { echo '<p>最終の起動確認: ' . esc_html($seen) . '（UTC）。起動確認だけでは定期実行の登録は確認できません。</p>'; }
         if ($attempt !== null && ($runner['lastResult'] ?? null) === 'unavailable') { echo '<p>前回の予定: ' . esc_html($attempt) . '（UTC）。自動取得は実行されませんでした。</p>'; }
+        if ($attempt !== null && ($runner['lastResult'] ?? null) === 'skipped') { echo '<p>前回の予定: ' . esc_html($attempt) . '（UTC）。ほかのバックアップが進行中のため見送りました。</p>'; }
         if ($attempt !== null && ($runner['lastResult'] ?? null) === 'started') { echo '<p>前回の予定: ' . esc_html($attempt) . '（UTC）。起動依頼を受け付けました。バックアップの完了は別途確認してください。</p>'; }
         if ($attempt !== null && in_array($runner['lastResult'] ?? null, ['failed', 'interrupted', 'claimed'], true)) { echo '<p>前回の予定: ' . esc_html($attempt) . '（UTC）。起動状況を確認できません。自動再試行せず、バックアップの状態を確認してください。</p>'; }
         if ($attempt !== null && ($runner['lastResult'] ?? null) === 'config_changed') { echo '<p>前回の予定: ' . esc_html($attempt) . '（UTC）。設定が変更されたため開始しませんでした。</p>'; }

@@ -36,15 +36,22 @@ function time(): int {
 }
 namespace {
 require ROOT . '/wp-load.php'; require TRANSPORT;
-use WordPressR2Backup\{LiveBackup,LiveSettings,DirectR2Repository};
+use WordPressR2Backup\{BackupHistory,LiveBackup,LiveSettings,DirectR2Repository,R2TransportException};
 function check($condition,string $message): void { if(!$condition) throw new RuntimeException($message); }
 $settings=LiveSettings::validate(['accountId'=>str_repeat('a',32),'bucket'=>'backup-test','accessKeyId'=>str_repeat('B',32),'secretAccessKey'=>str_repeat('c',64),'recipients'=>RECIPIENTS,'retentionDays'=>30]);
 $settings['connectionVerified']=true; $settings['proofs']=[['confirmed'=>true],['confirmed'=>true]];
 $settings['policy']['preset']='custom'; $settings['policy']['paths']=['wp-admin'=>'exclude','wp-includes'=>'exclude','wp-content'=>'exclude'];
-LiveSettings::save($settings); $memory=new WordPressR2Backup\Tests\MemoryR2Transport(OBJECT_DIRECTORY);
-$repo=new DirectR2Repository(array_intersect_key($settings,array_flip(['accountId','bucket','accessKeyId','secretAccessKey','unitId'])),$memory);
+LiveSettings::save($settings); $memory=new WordPressR2Backup\Tests\MemoryR2Transport(OBJECT_DIRECTORY); $fault='';
+$transport=static function (array $request,callable $consume) use($memory,&$fault): array {
+    if ($fault==='connection' && $request['method']==='PUT') { $fault=''; throw new R2TransportException(7); }
+    $result=$memory($request,$consume);
+    if ($fault==='commit' && $request['method']==='PUT' && strpos($request['url'],'/commits/')!==false) { $fault=''; throw new RuntimeException('Synthetic lost commit response'); }
+    return $result;
+};
+$repo=new DirectR2Repository(array_intersect_key($settings,array_flip(['accountId','bucket','accessKeyId','secretAccessKey','unitId'])),$transport);
 $backup=new LiveBackup($settings,$repo);
 $id=str_repeat('1',64);$token=str_repeat('2',64);$workspace=$backup->workspace();$ticket=$workspace.'/launch-'.$id.'.json';
+$history=new BackupHistory($workspace);
 file_put_contents($ticket,json_encode(['version'=>1,'launchId'=>$id,'workspace'=>$workspace,'root'=>realpath(ABSPATH),'tokenHash'=>hash('sha256',$token)]));chmod($ticket,0600);
 update_option('wrb_live_operation',['id'=>str_repeat('3',64),'snapshotId'=>str_repeat('4',64),'status'=>'queued','launchId'=>$id,'completed'=>0,'total'=>0],false);
 $env=getenv();$env['WRB_LAUNCH_TOKEN']=$token;$process=proc_open([PHP_BINARY,ABSPATH.'wp-content/plugins/wordpress-r2-backup/worker.php',$ticket],[0=>['file','/dev/null','r'],1=>['file','/dev/null','w'],2=>['file','/dev/null','w']],$pipes,null,$env);
@@ -75,6 +82,8 @@ $failed=$backup->state();
 check($rejected && ($failed['status']??'')==='failed','non-InnoDB capture must fail');
 check(($failed['message']??'')==='保守なしでは、対象データベースにInnoDB以外のテーブルがあるため実行できません。','non-InnoDB message must be fixed and safe');
 $wpdb->query('DROP TABLE '.$wpdb->prefix.'wrb_memory_test'); $backup->cancel();
+$failure=$history->find($failed['id']);
+check($failure['status']==='failed' && in_array('capture_unsupported_engine',array_column($failure['events'],'code'),true),'Failed run must keep its safe diagnosis after cleanup');
 $id=str_repeat('b',64); $queued=$backup->queue($id,false,'online');
 $GLOBALS['wrbObserveOnline']=true; $GLOBALS['wrbSawMaintenance']=false;
 $state=$backup->begin($id); $GLOBALS['wrbObserveOnline']=false;
@@ -89,13 +98,25 @@ $guard=file_get_contents($dir.'/capture-ready'); unlink($dir.'/capture-ready');
 $rejected=false; try { $backup->step(); } catch(RuntimeException $e) { $rejected=true; }
 check($rejected,'guard missing must fail'); check(count(glob(OBJECT_DIRECTORY.'/*')?:[])===0,'missing guard uploaded data');
 file_put_contents($dir.'/capture-ready',$guard); chmod($dir.'/capture-ready',0600);
+$runId=$state['id']; $fault='connection'; $rejected=false;
+try { $backup->step(); } catch(RuntimeException $e) { $rejected=true; }
+$interrupted=$history->find($runId);
+check($rejected && $interrupted['status']==='interrupted' && in_array('transfer_connection',array_column($interrupted['events'],'code'),true),'Failed R2 connection must be resumable and have a safe history event');
 $resumeId=str_repeat('d',64); $resume=$backup->queue($resumeId,true);
 check(($resume['consistencyMode']??null)==='online','resume lost its capture mode');
 $ticket=['version'=>2,'action'=>'resume','mode'=>'online','settingsDigest'=>$resume['settingsDigest'],'sharingDigest'=>$resume['sharingDigest']];
 $bad=$ticket; $bad['settingsDigest']=str_repeat('f',64); $rejected=false;
 try { $backup->runQueued($resumeId,$bad); } catch(RuntimeException $e) { $rejected=true; }
 check($rejected,'mismatched resume ticket must fail before transfer');
+$fault='commit'; $rejected=false;
+try { $backup->runQueued($resumeId,$ticket); } catch(RuntimeException $e) { $rejected=true; }
+check($rejected && $history->find($runId)['status']==='interrupted','Lost commit response must not be presented as verified completion');
+$resumeId=str_repeat('0',64); $backup->queue($resumeId,true);
 $state=$backup->runQueued($resumeId,$ticket);
+$saved=$history->find($runId); $events=array_column($saved['events'],'code');
+check($saved['status']==='complete' && $saved['snapshotId']===$state['snapshotId'] && $saved['bytes']>0,'Verified R2 completion must use the original run ID and recorded saved bytes');
+check(in_array('resumed',$events,true) && in_array('final_verification',$events,true) && end($events)==='complete','History must log resume, final verification and verified completion');
+check($saved['settings']['mode']==='online' && $saved['settings']['exclusions']['paths']===3,'Saved history must retain the original capture mode and exclusion counts');
 echo json_encode(['status'=>$state['status'],'workspace'=>$workspace,'maintenance'=>file_exists(ABSPATH.'.maintenance')],JSON_THROW_ON_ERROR);
 }
 SCRIPT;

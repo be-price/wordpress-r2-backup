@@ -14,7 +14,7 @@ try {
     $class = new ReflectionClass(\WordPressR2Backup\BackupScheduler::class);
     if (realpath((string) $class->getFileName()) !== realpath(__DIR__ . '/src/BackupScheduler.php')) { throw new RuntimeException('Release mismatch.'); }
     $workspace = \WordPressR2Backup\LiveSettings::workspace();
-    \WordPressR2Backup\BackupScheduler::withScheduleLock($workspace, static function (): void {
+    \WordPressR2Backup\BackupScheduler::withScheduleLock($workspace, static function () use ($workspace): void {
         wp_cache_delete('wrb_live_schedule', 'options'); wp_cache_delete('wrb_live_schedule_runner', 'options'); wp_cache_delete('notoptions', 'options');
         $config = get_option('wrb_live_schedule', null);
         if ($config !== null && !is_array($config)) { throw new RuntimeException('Schedule configuration is invalid.'); }
@@ -22,15 +22,28 @@ try {
         if (!is_array($state)) { throw new RuntimeException('Schedule state is invalid.'); }
         $lastAttempt = $state['lastAttempt'] ?? null;
         if ($lastAttempt !== null && !is_string($lastAttempt)) { throw new RuntimeException('Schedule state is invalid.'); }
+        $zone = wp_timezone();
+        $record = static function (string $slot, array $schedule, ?array $settings, string $outcome) use ($workspace, $zone): void {
+            try {
+                $schedule['timezone'] = $zone->getName();
+                (new \WordPressR2Backup\BackupHistory($workspace))->scheduleOutcome($slot, $schedule, $settings, $outcome);
+            } catch (Throwable $error) {
+                fwrite(STDERR, "定期バックアップの履歴を記録できませんでした。\n");
+            }
+        };
         if (($state['lastResult'] ?? '') === 'claimed') {
             if ($lastAttempt === null || !is_string($state['claimRevision'] ?? null) || !preg_match('/\A[a-f0-9]{64}\z/D', $state['claimRevision'])) { throw new RuntimeException('Schedule claim is invalid.'); }
             $state['lastResult'] = 'interrupted';
             $state['message'] = '前回の定期実行の起動結果を確認できません。重複を避けて再実行しないため、バックアップの状態を確認してください。';
+            $claim = ($config['revision'] ?? null) === $state['claimRevision'] ? $config : ['revision' => $state['claimRevision']];
+            $record($lastAttempt, $claim, null, 'interrupted');
         }
         $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
-        $zone = wp_timezone();
         $missed = is_array($config) ? \WordPressR2Backup\BackupScheduler::latestMissed($config, $state, $zone, $now) : null;
-        if ($missed !== null) { $state['lastMissedSlot'] = $missed; $state['lastMissedRecordedAt'] = $now->format('Y-m-d\TH:i:s\Z'); $state['lastMissedRevision'] = $config['revision']; }
+        if ($missed !== null) {
+            $state['lastMissedSlot'] = $missed; $state['lastMissedRecordedAt'] = $now->format('Y-m-d\TH:i:s\Z'); $state['lastMissedRevision'] = $config['revision'];
+            $record($missed, $config, null, 'missed');
+        }
         if (is_array($config)) { $state['observedRevision'] = $config['revision']; }
         $slot = is_array($config) ? \WordPressR2Backup\BackupScheduler::due($config, $lastAttempt, $zone, $now) : null;
         $state['lastSeen'] = $now->format('Y-m-d\TH:i:s\Z');
@@ -40,6 +53,7 @@ try {
             if (get_option('wrb_live_schedule_runner', null) !== $value) { throw new RuntimeException('Schedule state could not be recorded.'); }
         };
         if ($slot !== null) {
+            $settings = null;
             // Claim before any future launch. A crash may miss one slot, but cannot replay it.
             $state['lastAttempt'] = $slot; $state['claimRevision'] = $config['revision'];
             $state['status'] = 'claimed'; $state['lastResult'] = 'claimed';
@@ -61,7 +75,7 @@ try {
                         wp_cache_delete(\WordPressR2Backup\LiveSettings::OPTION, 'options'); wp_cache_delete('notoptions', 'options');
                         $settings = \WordPressR2Backup\LiveSettings::load();
                         if (!is_array($settings)) { throw new RuntimeException('Backup settings are missing.'); }
-                        $queued = (new \WordPressR2Backup\LiveRunner($settings))->startOnline();
+                        $queued = (new \WordPressR2Backup\LiveRunner($settings))->startOnline($config + ['slot' => $slot, 'timezone' => $zone->getName()]);
                         $digest = hash('sha256', json_encode($settings, JSON_THROW_ON_ERROR));
                         if (($queued['status'] ?? '') !== 'queued' || ($queued['consistencyMode'] ?? '') !== 'online'
                             || !is_string($queued['settingsDigest'] ?? null) || !hash_equals($digest, $queued['settingsDigest'])
@@ -72,14 +86,19 @@ try {
                         $state['message'] = '保守なしバックアップの起動を受け付けました。実行状況を確認してください。';
                     } catch (Throwable $error) {
                         // The worker may have started before an acknowledgement was lost; never retry this slot.
-                        $state['status'] = 'failed'; $state['lastResult'] = 'failed';
-                        $state['message'] = '起動依頼を確認できません。自動再試行せず、バックアップの状態を確認してください。';
+                        wp_cache_delete('wrb_live_operation', 'options'); wp_cache_delete('notoptions', 'options');
+                        $active = get_option('wrb_live_operation', null);
+                        $busy = is_array($active) && in_array($active['status'] ?? '', ['queued', 'capturing', 'uploading'], true);
+                        $state['status'] = $state['lastResult'] = $busy ? 'skipped' : 'failed';
+                        $state['message'] = $busy ? '未完了のバックアップがあるため、この予定の実行を見送りました。'
+                            : '起動依頼を確認できません。自動再試行せず、バックアップの状態を確認してください。';
                     }
                 }
             } else {
                 $state['status'] = 'unavailable'; $state['lastResult'] = 'unavailable';
                 $state['message'] = '安全な自動取得の準備が未完了のため開始しませんでした。';
             }
+            if ($state['lastResult'] !== 'started') { $record($slot, $config, $settings, $state['lastResult']); }
         } else { $state['status'] = 'not_due'; }
         $persist($state);
         fwrite(STDOUT, json_encode(['status' => $state['status']], JSON_THROW_ON_ERROR) . "\n");
