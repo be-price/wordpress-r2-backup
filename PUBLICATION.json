@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "sourceCommit": "972fc73c4c65ac12d655c12b4896aee297761080",
+    "sourceCommit": "71b46692a483f396f036ca44570eb5cf749097ac",
     "files": [
         {
             "path": ".gitignore",
@@ -12,15 +12,15 @@
         },
         {
             "path": "README.md",
-            "sha256": "037b559cd9e1521f1542b9340b42a0a770d25aced8b168ff77eb1ae3ec40a379"
+            "sha256": "33aa23f41fd6af9f97235c24f457fdd179b32b7d8867f08b76e5d525f5947526"
         },
         {
             "path": "THIRD-PARTY-NOTICES.md",
-            "sha256": "8c17c70f6ef0ccddb35d12cba05a89d43d1993234132223b16f9fe46d98412f3"
+            "sha256": "a18da42e615c4204fff19d86aca19bfce7209187db31537ce73ea9c9c076e2a2"
         },
         {
             "path": "assets/admin.css",
-            "sha256": "63a2ec87208c050abac155589520ed4c0d6532d7197c99980ddc4b6c8b8565b7"
+            "sha256": "1cf58c2c079adb24f00d87b9789b41e07fcd7f26cc8f51bfe18c68dd71ffbf5b"
         },
         {
             "path": "assets/live.js",
@@ -33,6 +33,10 @@
         {
             "path": "assets/restore.js",
             "sha256": "35a0319912e5fc9f8f8f88394c50ce846646e9e081b693a26e0dc17a2b8b2e96"
+        },
+        {
+            "path": "assets/schedule-rules.js",
+            "sha256": "eb0fe1a1e8bc9febcf1730ca85bfa9fda33da7eb3e861cf3b63f9fce105f476a"
         },
         {
             "path": "bin/LICENSE.age",
@@ -48,11 +52,11 @@
         },
         {
             "path": "composer.json",
-            "sha256": "ca7cf0634dd037db29a5cfcc67b4de82915f47b8ab922896e862e755a434a7c5"
+            "sha256": "9e4f1121ad7923dc7a1b38ce733db7b7aa459e65ec65e0a5dcd2c9442b666a4c"
         },
         {
             "path": "composer.lock",
-            "sha256": "c6f4eb2b9aaff68776c958c9de47f0f35c1b405f263987395ce8e5272bf0b7a7"
+            "sha256": "d11755a09b8498d917b0d6c1e4454cdc931c751706579b93e358b01f5ca913ca"
         },
         {
             "path": "dependencies/sqlite-database-integration/LICENSE",
@@ -296,7 +300,7 @@
         },
         {
             "path": "src/BackupScheduler.php",
-            "sha256": "4c8a885dbff7a6253379e5b7653d4e8cb98613ba01b54ac34811acdfe061520c"
+            "sha256": "fa1bbc82a35bd8fe20d903951d11268431d3d3ef057d92ef4953f4fd028049a5"
         },
         {
             "path": "src/CaptureControlException.php",
@@ -324,11 +328,11 @@
         },
         {
             "path": "src/LiveAdmin.php",
-            "sha256": "de97b5904c3c5becd3ea57ace06bbc8c3567faaa2a1fb517628a21d6d9a446bf"
+            "sha256": "a1dd474165b70c1aa9829da495d0692d70e82a43a731c672edc8c26f75707c97"
         },
         {
             "path": "src/LiveAdminView.php",
-            "sha256": "95c7c2c516f3c8995cf619d214318e123f81c09e0b7a6b29d6e779d8183957a0"
+            "sha256": "c9ff1f16cae463f3552ed8db9f38e421906b07b6c1a6acf3d7f6135fd2337a82"
         },
         {
             "path": "src/LiveBackup.php",
@@ -532,7 +536,7 @@
         },
         {
             "path": "src/WordPressAdmin.php",
-            "sha256": "c67bb92357a980d6fea0a190e9ad0f5a81ad951951d52098a93c7d74838e031f"
+            "sha256": "9aebc1616493be7a2efaf9e7bee3c53c5a22e6fbb26fcce7bc2e7ca1bfe2876c"
         },
         {
             "path": "src/WordPressDatabase.php",
@@ -1281,6 +1285,14 @@
         {
             "path": "worker.php",
             "sha256": "201e30618fe313b2ddf2121172616dbaa448f8aa1455c521a8dd876034c69b96"
+        },
+        {
+            "path": "src/ScheduleRules.php",
+            "sha256": "e8cc3a50a8060c7e904357ae1d760ca6175fcbad6813d91eb2cb67eb23796ee2"
+        },
+        {
+            "path": "tests/ScheduleRulesTest.php",
+            "sha256": "6fa92e10c75fb0018717e51ab2e3b7081db1fee38dfcdf3dbff72cf9c6f44225"
         }
     ]
 }

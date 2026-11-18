@@ -5,11 +5,12 @@
   "license": "GPL-2.0-or-later",
   "require": {
     "php": ">=7.4",
+    "ext-curl": "*",
+    "ext-dom": "*",
     "ext-intl": "*",
     "ext-mbstring": "*",
-    "ext-curl": "*",
     "ext-openssl": "*",
-    "ext-dom": "*",
+    "dragonmantank/cron-expression": "^3.3",
     "symfony/polyfill-php80": "^1.33",
     "symfony/polyfill-php81": "^1.33"
   },

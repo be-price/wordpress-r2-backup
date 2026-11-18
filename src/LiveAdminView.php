@@ -255,17 +255,45 @@ final class LiveAdminView
         if ($locked) { echo '<p>接続設定を保存し、未完了のバックアップを終了または取り消すと、予定を編集できます。</p>'; }
         LiveAdmin::form('schedule');
         echo '<fieldset' . ($locked ? ' disabled' : '') . '><legend>定期実行の設定</legend><p><label><input type="checkbox" name="scheduleEnabled" value="1"' . (($schedule['enabled'] ?? false) === true ? ' checked' : '') . '> 定期バックアップの予定を有効にする</label></p>';
-        echo '<p><label for="wrb-schedule-frequency">頻度</label> <select id="wrb-schedule-frequency" name="scheduleFrequency"><option value="hourly"' . ($frequency === 'hourly' ? ' selected' : '') . '>1時間ごと</option><option value="daily"' . ($frequency === 'daily' ? ' selected' : '') . '>毎日</option><option value="weekly"' . ($frequency === 'weekly' ? ' selected' : '') . '>毎週</option></select> <label for="wrb-schedule-weekday">曜日（毎週の場合）</label> <select id="wrb-schedule-weekday" name="scheduleWeekday"><option value="">選択してください</option>';
-        foreach (['月', '火', '水', '木', '金', '土', '日'] as $index => $day) { $value = (string) ($index + 1); echo '<option value="' . $value . '"' . ($weekday === $value ? ' selected' : '') . '>' . $day . '曜日</option>'; }
-        echo '</select> <label for="wrb-schedule-time">開始時刻</label> <input type="time" id="wrb-schedule-time" name="scheduleTime" value="' . esc_attr($time) . '" aria-describedby="wrb-schedule-time-help" required> <span class="description" id="wrb-schedule-time-help">サイトのタイムゾーン。毎時の場合は分だけを使用します（例: 03:15なら毎時15分）。</span></p>';
+        try { $rules = ScheduleRules::validate($schedule['rules'] ?? [['type' => 'basic']]); }
+        catch (\InvalidArgumentException $error) {
+            echo '<p class="wrb-alert">保存済みのルールを読み取れません。基本ルールを確認して保存し直してください。</p>';
+            $rules = ScheduleRules::validate([['type' => 'basic']]);
+        }
+        echo '<div data-wrb-schedule-rules data-limit="' . ScheduleRules::LIMIT . '">';
+        echo '<p class="description">上から順に確認し、最初に一致したルールを適用します。除外を優先する場合は実行ルールより上に置いてください。時刻はサイトのタイムゾーンです。</p>';
+        echo '<ol class="wrb-schedule-rules" data-wrb-rule-list>';
+        foreach ($rules as $index => $rule) {
+            self::scheduleRuleStart((string) $index, $rule['type']);
+            if ($rule['type'] === 'basic') {
+                echo '<p><label>基本ルール <select name="scheduleRules[' . $index . '][enabled]"><option value="1"' . ($rule['enabled'] === '1' ? ' selected' : '') . '>有効</option><option value="0"' . ($rule['enabled'] === '0' ? ' selected' : '') . '>無効</option></select></label></p>';
+                self::basicScheduleFields($frequency, $time, $weekday);
+            } else {
+                self::scheduleRuleFields((string) $index, $rule);
+            }
+            echo '</li>';
+        }
+        echo '</ol><p class="hide-if-no-js"><button type="button" class="button" data-wrb-add="cron">cronルールを追加</button> <button type="button" class="button" data-wrb-add="exclude">除外時間帯を追加</button></p>';
+        echo '<p class="screen-reader-text" role="status" data-wrb-rule-status></p>';
+        foreach ([['type' => 'cron', 'cron' => '15 2 * * 3'], ['type' => 'exclude', 'day' => '0', 'from' => '02:00', 'to' => '03:00']] as $rule) {
+            echo '<template data-wrb-rule-template="' . $rule['type'] . '">';
+            self::scheduleRuleStart('new', $rule['type']);
+            self::scheduleRuleFields('new', $rule);
+            echo '</li></template>';
+        }
+        echo '<input type="hidden" name="scheduleRulesComplete" value="1"></div>';
         echo '<p><label><input type="radio" name="scheduleMode" value="maintenance"' . ($mode === 'maintenance' ? ' checked' : '') . '> 保守あり</label> — 外部の書き込み停止を確認できた場合のみ実行します。</p><p><label><input type="radio" name="scheduleMode" value="online"' . ($mode === 'online' ? ' checked' : '') . '> 保守なし</label> — DBとファイルの取得時点に差が出る可能性があります。</p>';
         submit_button('定期バックアップの設定を保存', 'secondary', '', false);
         echo '</fieldset></form>';
         $next = '未確定';
         if (($schedule['enabled'] ?? false) === true && function_exists('wp_timezone') && function_exists('wp_timezone_string')) {
             try {
-                $nextDate = BackupSchedule::next($frequency, $time, $weekday === '' ? null : (int) $weekday, wp_timezone(), new \DateTimeImmutable('now', new \DateTimeZone('UTC')));
-                $next = $nextDate->setTimezone(wp_timezone())->format('Y-m-d H:i') . '（' . wp_timezone_string() . '）';
+                $now = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+                $nextDate = array_key_exists('rules', $schedule)
+                    ? ScheduleRules::next($schedule, wp_timezone(), $now)
+                    : BackupSchedule::next($frequency, $time, $weekday === '' ? null : (int) $weekday, wp_timezone(), $now);
+                $next = $nextDate === null ? '370日以内に実行候補なし'
+                    : $nextDate->setTimezone(wp_timezone())->format('Y-m-d H:i') . '（' . wp_timezone_string() . '）';
             } catch (\Throwable $error) { $next = '設定を確認してください'; }
         }
         echo '<p>次回の予定: ' . esc_html($next) . '。サーバーの定期実行が動作した場合の予定です。</p>';
@@ -287,6 +315,41 @@ final class LiveAdminView
         if ($attempt !== null && in_array($runner['lastResult'] ?? null, ['failed', 'interrupted', 'claimed'], true)) { echo '<p>前回の予定: ' . esc_html($attempt) . '（UTC）。起動状況を確認できません。自動再試行せず、バックアップの状態を確認してください。</p>'; }
         if ($attempt !== null && ($runner['lastResult'] ?? null) === 'config_changed') { echo '<p>前回の予定: ' . esc_html($attempt) . '（UTC）。設定が変更されたため開始しませんでした。</p>'; }
         echo '</section>';
+    }
+
+    private static function basicScheduleFields(string $frequency, string $time, string $weekday): void
+    {
+        echo '<p><label for="wrb-schedule-frequency">頻度</label> <select id="wrb-schedule-frequency" name="scheduleFrequency"><option value="hourly"' . ($frequency === 'hourly' ? ' selected' : '') . '>1時間ごと</option><option value="daily"' . ($frequency === 'daily' ? ' selected' : '') . '>毎日</option><option value="weekly"' . ($frequency === 'weekly' ? ' selected' : '') . '>毎週</option></select> <label for="wrb-schedule-weekday">曜日（毎週の場合）</label> <select id="wrb-schedule-weekday" name="scheduleWeekday"><option value="">選択してください</option>';
+        foreach (['月', '火', '水', '木', '金', '土', '日'] as $index => $day) { $value = (string) ($index + 1); echo '<option value="' . $value . '"' . ($weekday === $value ? ' selected' : '') . '>' . $day . '曜日</option>'; }
+        echo '</select> <label for="wrb-schedule-time">開始時刻</label> <input type="time" id="wrb-schedule-time" name="scheduleTime" value="' . esc_attr($time) . '" aria-describedby="wrb-schedule-time-help" required> <span class="description" id="wrb-schedule-time-help">サイトのタイムゾーン。毎時の場合は分だけを使用します（例: 03:15なら毎時15分）。</span></p>';
+    }
+
+    private static function scheduleRuleStart(string $index, string $type): void
+    {
+        $title = ['basic' => '基本の実行日時', 'cron' => 'cronで実行', 'exclude' => 'メンテナンス時間帯を除外'][$type];
+        echo '<li><input type="hidden" name="scheduleRules[' . $index . '][type]" value="' . $type . '">';
+        echo '<div class="wrb-rule-heading"><span class="dashicons dashicons-move hide-if-no-js wrb-rule-grip" draggable="true" title="ドラッグして優先順位を変更" aria-hidden="true"></span>';
+        echo '<strong>' . $title . '</strong><div class="wrb-rule-actions hide-if-no-js">';
+        echo '<button type="button" class="button button-small" data-wrb-move="-1">上へ</button> <button type="button" class="button button-small" data-wrb-move="1">下へ</button>';
+        if ($type !== 'basic') { echo ' <button type="button" class="button button-small" data-wrb-remove-rule>削除</button>'; }
+        echo '</div></div>';
+    }
+
+    private static function scheduleRuleFields(string $index, array $rule): void
+    {
+        $name = 'scheduleRules[' . $index . ']';
+        if ($rule['type'] === 'cron') {
+            echo '<p><label>cron式 <input type="text" class="regular-text code" name="' . $name . '[cron]" value="' . esc_attr($rule['cron']) . '" maxlength="128" required></label></p>';
+            echo '<p class="description">分・時・日・月・曜日の5項目です。例 <code>15 2 * * 3</code>（毎週水曜 02:15）。</p>';
+            return;
+        }
+        echo '<p><label>開始曜日 <select name="' . $name . '[day]">';
+        foreach (['毎日', '月曜', '火曜', '水曜', '木曜', '金曜', '土曜', '日曜'] as $day => $label) {
+            echo '<option value="' . $day . '"' . ($rule['day'] === (string) $day ? ' selected' : '') . '>' . $label . '</option>';
+        }
+        echo '</select></label> <label>開始 <input type="time" name="' . $name . '[from]" value="' . esc_attr($rule['from']) . '" required></label> ';
+        echo '<label>終了 <input type="time" name="' . $name . '[to]" value="' . esc_attr($rule['to']) . '" required></label></p>';
+        echo '<p class="description">終了が開始より早い場合は翌日まで除外します。終了時刻は除外に含みません。</p>';
     }
 
     private static function mediaAudit(bool $busy): void
