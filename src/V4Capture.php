@@ -26,6 +26,8 @@ final class V4Capture
      * identifier, digest or content is ever recorded, and no check reads these values back.
      */
     private array $measurements = [];
+    private ?string $filePhase = null;
+    private array $fileWorkNanoseconds = [];
 
     public function __construct(SourceRoots $roots, $wpdb, PrivacyPolicy $policy, string $privateDirectory, ?array $maintenanceOwner = null, string $siteUrl = 'https://example.invalid')
     {
@@ -62,6 +64,10 @@ final class V4Capture
             if ($collectContents) { $this->scannedContents = MetadataMap::createProcessLocal($this->directory . '/selected-content-map'); }
             $summary = ['entries' => 0, 'selected' => 0, 'excluded' => 0, 'files' => 0, 'directories' => 0, 'links' => 0, 'fileBytes' => 0, 'decisions' => []];
             $ancestors = [];
+            $heartbeat = $progress === null ? null : static function () use ($progress): void { $progress(['phase' => 'scan', 'heartbeat' => true]); };
+            $inventoryBatch = new CaptureMetadataBatch($this->inventory, $heartbeat);
+            $contentsBatch = $this->scannedContents === null ? null : new CaptureMetadataBatch($this->scannedContents, $heartbeat);
+            $this->beginFilePhase('scanFiles');
             foreach ($this->entries($summary, $progress, 'scan') as $entry) {
                 foreach ($ancestors as $key => $ancestor) {
                     if ($ancestor['entry']['rootId'] !== $entry['rootId'] || strpos($entry['path'], $ancestor['entry']['path'] . '/') !== 0) { unset($ancestors[$key]); }
@@ -69,14 +75,20 @@ final class V4Capture
                 if ($entry['selected']) {
                     foreach ($ancestors as $key => $ancestor) {
                         if (!$ancestor['remembered']) {
-                            $this->rememberEntry($ancestor['entry'], $summary, $progress);
+                            $this->rememberEntry($ancestor['entry'], $summary, $progress, $inventoryBatch, $contentsBatch);
                             $ancestors[$key]['remembered'] = true;
                         }
                     }
-                    $this->rememberEntry($entry, $summary, $progress);
+                    $this->rememberEntry($entry, $summary, $progress, $inventoryBatch, $contentsBatch);
                 }
                 if ($entry['type'] === 'directory') { $ancestors[self::key($entry)] = ['entry' => $entry, 'remembered' => $entry['selected']]; }
             }
+            // The tree walk rejects duplicate paths, and each included ancestor is recorded once. Subsequent passes
+            // read only the resulting on-disk maps and perform the existing stat, selection and SHA-256 checks.
+            $writeStarted = hrtime(true);
+            $inventoryBatch->flush();
+            if ($contentsBatch !== null) { $contentsBatch->flush(); }
+            $this->addFileWork('Index', hrtime(true) - $writeStarted);
             // A standalone scan must validate now; capture repeats this check under its read lock.
             if ($verifyEnumeration) {
                 $seen = 0;
@@ -89,6 +101,7 @@ final class V4Capture
                 }
                 if ($seen !== $summary['selected']) { throw new RuntimeException('A source entry disappeared during preflight.'); }
             }
+            $this->filePhase = null;
             $summary['excluded'] = $summary['entries'] - $summary['selected'];
             $preflight = $this->database->preflight();
             $summary['tableCount'] = $preflight['tableCount'];
@@ -110,19 +123,25 @@ final class V4Capture
         $startedAt = gmdate('Y-m-d\TH:i:s\Z');
         $captureStarted = hrtime(true); $encryptionBefore = $age->streamTotals();
         $this->measurements['scanBeforeCapture'] = $this->state === 'scanned' ? 1 : 0;
-        // A filtered policy needs membership proof whenever the index holds a ready pack, so the scan's hashing read
-        // records chunk ids now instead of reading every file again under the lock. Other cases keep the locked pass.
-        $this->scanSelection($progress, $index !== null && $this->state === 'new' && !$this->policy->isComplete(), false);
+        $full = $this->policy->isComplete();
+        // The sharing index is already locked. A filtered selection only needs to record chunk ids when a ready pack exists.
+        $filteredNeedsProof = $index !== null && !$full && $index->requiresMembershipProof(false);
+        $this->scanSelection($progress, $this->state === 'new' && $filteredNeedsProof, false);
         if ($this->state !== 'scanned') { $this->state = 'failed'; throw new RuntimeException('Capture inspection did not complete.'); }
         $this->state = 'capturing';
         try {
             $selectedRoots = $this->selectedRoots();
             $rootScopeSha256 = V4ContentIndex::rootScopeSha256($selectedRoots);
-            $selectedContents = $index !== null && $index->requiresMembershipProof($this->policy->isComplete(), $rootScopeSha256)
+            $selectedContents = $index !== null && ($full ? $index->requiresMembershipProof(true, $rootScopeSha256) : $filteredNeedsProof)
                 ? ($this->scannedContents ?? MetadataMap::createProcessLocal($this->directory . '/selected-content-map')) : null;
             $filesCollected = $selectedContents !== null && $selectedContents === $this->scannedContents;
             $heartbeat = $progress === null ? null : static function () use ($progress): void { $progress(['phase' => 'capture', 'heartbeat' => true]); };
-            $store = new V4ContentStore($age, $recipients, $this->directory, $scope, $snapshotId, $index, $rootScopeSha256, $this->policy->isComplete(), $selectedContents, $heartbeat);
+            $lockedFileProgress = null;
+            $storeHeartbeat = static function () use (&$lockedFileProgress, $heartbeat): void {
+                if ($lockedFileProgress !== null) { $lockedFileProgress(['phase' => 'capture', 'heartbeat' => true]); }
+                elseif ($heartbeat !== null) { $heartbeat(); }
+            };
+            $store = new V4ContentStore($age, $recipients, $this->directory, $scope, $snapshotId, $index, $rootScopeSha256, $full, $selectedContents, $storeHeartbeat);
             $filesystem = new V4Pages($age, $recipients, $this->directory, $snapshotId, 'filesystem');
             $database = new V4Pages($age, $recipients, $this->directory, $snapshotId, 'database');
             $sqlHash = hash_init('sha256');
@@ -132,9 +151,12 @@ final class V4Capture
             $databaseVerifiedAt = '';
             $counts = ['files' => 0, 'directories' => 0, 'links' => 0, 'contents' => 0, 'packs' => 0, 'databaseBytes' => 0, 'fileBytes' => 0];
             if ($progress !== null) { $this->database->onHeartbeat(static function () use ($progress): void { $progress(['phase' => 'capture', 'heartbeat' => true]); }); }
-            $captureFiles = function (?WordPressDatabase $source) use ($store, $filesystem, &$counts, $progress, &$verifiedAt): void {
+            $captureFiles = function (callable $fileProgress) use ($store, $filesystem, &$counts, &$verifiedAt): void {
                 $phase = hrtime(true);
-                $fileProgress = $source === null ? static function (array $update) use ($progress): void { if ($progress !== null) { $progress($update); } } : $this->lockedFileProgress($source, $progress);
+                $this->beginFilePhase('filesCapture');
+                $this->fileWorkNanoseconds['filesCaptureAssemblyMs'] = 0;
+                $indexBefore = $store->indexNanoseconds();
+                $verificationBefore = $store->verificationTotals()['nanoseconds'];
                 $fileProgress(['phase' => 'capture', 'heartbeat' => true]);
                 $observation = null;
                 foreach ($this->entries($observation, $fileProgress) as $entry) {
@@ -143,23 +165,34 @@ final class V4Capture
                     $header = ['type' => $entry['type'], 'rootId' => $entry['rootId'], 'path' => $entry['path']];
                     if ($entry['type'] === 'file') {
                         $header['size'] = $entry['stat']['size']; $header['mode'] = $entry['mode'];
-                        $filesystem->append($header);
-                        $hash = $this->readFile($entry, static function (string $bytes) use ($filesystem, $store, $entry): void {
-                            $filesystem->append(['type' => 'part', 'content' => $store->accept($bytes, self::lane($entry['path']))]);
+                        $this->appendFileRecord($filesystem, $header);
+                        $lane = self::lane($entry['path']);
+                        $hash = $this->readFile($entry, function (string $bytes) use ($filesystem, $store, $lane): void {
+                            $started = hrtime(true);
+                            $content = $store->accept($bytes, $lane);
+                            $this->addFileWork('Assembly', hrtime(true) - $started);
+                            $this->appendFileRecord($filesystem, ['type' => 'part', 'content' => $content]);
                         }, $fileProgress);
                         if (!hash_equals($saved['sha256'], $hash)) { throw new RuntimeException('Source file content changed after preflight.'); }
-                        $filesystem->append(['type' => 'end', 'sha256' => $hash]);
+                        $this->appendFileRecord($filesystem, ['type' => 'end', 'sha256' => $hash]);
                         ++$counts['files']; $counts['fileBytes'] += $entry['stat']['size'];
                     } elseif ($entry['type'] === 'directory') {
-                        $header['mode'] = $entry['mode']; $filesystem->append($header); ++$counts['directories'];
+                        $header['mode'] = $entry['mode']; $this->appendFileRecord($filesystem, $header); ++$counts['directories'];
                     } else {
                         $this->assertSelectedLink($entry);
-                        $header['target'] = $entry['target']; $filesystem->append($header); ++$counts['links'];
+                        $header['target'] = $entry['target']; $this->appendFileRecord($filesystem, $header); ++$counts['links'];
                     }
                     $fileProgress(['phase' => 'capture', 'files' => $counts['files'], 'directories' => $counts['directories'], 'links' => $counts['links'], 'fileBytes' => $counts['fileBytes']]);
                 }
+                $storeIndex = $store->indexNanoseconds() - $indexBefore;
+                $packVerification = $store->verificationTotals()['nanoseconds'] - $verificationBefore;
+                // Assembly includes encryption and writing ciphertext. Index operations and shared-pack verification have their own totals.
+                $this->addFileWork('Assembly', -$storeIndex - $packVerification);
+                $store->flushContentReferences();
+                $this->addFileWork('Index', $store->indexNanoseconds() - $indexBefore);
                 $this->measurements += ['filesCaptureMs' => self::elapsedMs($phase), 'filesCaptureFiles' => $counts['files'], 'filesCaptureBytes' => $counts['fileBytes']];
                 $phase = hrtime(true);
+                $this->beginFilePhase('filesFinal');
                 $seen = 0;
                 foreach ($this->entries($observation, $fileProgress) as $entry) {
                     $saved = $this->savedEntry($entry);
@@ -169,11 +202,12 @@ final class V4Capture
                 }
                 if ($seen !== $this->summary['selected']) { throw new RuntimeException('A source entry disappeared during capture.'); }
                 $this->measurements += ['filesFinalMs' => self::elapsedMs($phase), 'filesFinalEntries' => $seen];
+                $this->filePhase = null;
                 $store->verifyPending();
                 $verifiedAt = gmdate('Y-m-d\TH:i:s\Z');
             };
             $lockCalled = hrtime(true); $lockHeld = 0; $lockLeft = 0;
-            $captureDatabase = function (WordPressDatabase $source) use ($store, $database, $sqlHash, &$databaseBytes, &$lockAcquiredAt, $progress, $selectedContents, $filesCollected, $lockCalled, &$lockHeld, &$lockLeft, $captureFiles, $mode): void {
+            $captureDatabase = function (WordPressDatabase $source) use ($store, $database, $sqlHash, &$databaseBytes, &$lockAcquiredAt, $progress, $selectedContents, $filesCollected, $lockCalled, &$lockHeld, &$lockLeft, $captureFiles, $mode, &$lockedFileProgress): void {
                 $lockHeld = hrtime(true); $this->measurements['lockWaitMs'] = self::elapsedMs($lockCalled);
                 if (!hash_equals($this->contextDigest, $this->policyContext->prepare($progress))) { throw new RuntimeException('Policy context changed after inspection. Run inspection again before capture.'); }
                 $this->measurements['lockContextMs'] = self::elapsedMs($lockHeld);
@@ -189,14 +223,19 @@ final class V4Capture
                 }
                 $this->measurements += ['databaseCaptureMs' => self::elapsedMs($phase), 'databaseCaptureBytes' => $databaseBytes];
                 $source->verification();
-                if ($mode === 'maintenance') { $captureFiles($source); }
+                if ($mode === 'maintenance') {
+                    // Only the file phase may use the source connection to keep the lock alive during batch writes.
+                    $lockedFileProgress = $this->lockedFileProgress($source, $progress);
+                    try { $captureFiles($lockedFileProgress); }
+                    finally { $lockedFileProgress = null; }
+                }
                 $lockLeft = hrtime(true); $this->measurements['lockHeldMs'] = self::elapsedMs($lockHeld);
             };
             if ($mode === 'online') {
                 $this->database->withConsistentSnapshot($captureDatabase);
                 $databaseVerifiedAt = gmdate('Y-m-d\TH:i:s\Z');
                 $this->measurements['lockReleaseMs'] = $lockLeft === 0 ? 0 : self::elapsedMs($lockLeft);
-                $captureFiles(null);
+                $captureFiles(static function (array $update) use ($progress): void { if ($progress !== null) { $progress($update); } });
             } else {
                 $this->database->withReadLock($captureDatabase);
                 $this->measurements['lockReleaseMs'] = $lockLeft === 0 ? 0 : self::elapsedMs($lockLeft);
@@ -255,10 +294,38 @@ final class V4Capture
     {
         $result = ['version' => 1];
         foreach ($this->measurements as $name => $value) { if (is_int($value) && $value >= 0) { $result[$name] = $value; } }
+        foreach ($this->fileWorkNanoseconds as $name => $value) { $result[$name] = intdiv($value, 1000000); }
         return $result;
     }
 
     private static function elapsedMs(int $started): int { return intdiv(max(0, hrtime(true) - $started), 1000000); }
+
+    private function beginFilePhase(string $phase): void
+    {
+        $this->filePhase = $phase;
+        $this->fileWorkNanoseconds[$phase . 'ReadMs'] = 0;
+        $this->fileWorkNanoseconds[$phase . 'IndexMs'] = 0;
+    }
+
+    private function addFileWork(string $kind, int $elapsed): void
+    {
+        if ($this->filePhase !== null) { $this->fileWorkNanoseconds[$this->filePhase . $kind . 'Ms'] += $elapsed; }
+    }
+
+    private function appendFileRecord(V4Pages $pages, array $record): void
+    {
+        $started = hrtime(true);
+        $pages->append($record);
+        $this->addFileWork('Assembly', hrtime(true) - $started);
+    }
+
+    private function inventoryEntry(string $key): ?array
+    {
+        $started = hrtime(true);
+        $entry = $this->inventory->get($key);
+        $this->addFileWork('Index', hrtime(true) - $started);
+        return $entry;
+    }
 
     private function entries(?array &$summary = null, ?callable $progress = null, string $phase = 'capture'): \Generator
     {
@@ -304,7 +371,7 @@ final class V4Capture
      */
     private function collectSelectedContents(WordPressDatabase $source, MetadataMap $selected, ?callable $progress, bool $filesCollected): void
     {
-        $remember = static function (string $bytes) use ($selected): void { self::rememberContent($selected, $bytes); };
+        $remember = function (string $bytes) use ($selected): void { $this->rememberContent($selected, $bytes); };
         $started = hrtime(true); $bytes = 0;
         foreach ($this->databaseRecords($source->records(), $progress, 'sharing-preflight') as $record) {
             if ($record['type'] === 'sql') { $remember($record['bytes']); $bytes += strlen($record['bytes']); }
@@ -312,6 +379,7 @@ final class V4Capture
         $this->measurements += ['databasePrepassMs' => self::elapsedMs($started), 'databasePrepassBytes' => $bytes];
         if ($filesCollected) { return; }
         $started = hrtime(true); $files = 0; $fileBytes = 0;
+        $this->beginFilePhase('filesPrepass');
         $fileProgress = $this->lockedFileProgress($source, $progress);
         $fileProgress(['phase' => 'sharing-preflight', 'heartbeat' => true]);
         $observation = null;
@@ -322,6 +390,7 @@ final class V4Capture
             ++$files; $fileBytes += $entry['stat']['size'];
         }
         $this->measurements += ['filesPrepassMs' => self::elapsedMs($started), 'filesPrepassFiles' => $files, 'filesPrepassBytes' => $fileBytes];
+        $this->filePhase = null;
     }
 
     private function databaseRecords(iterable $records, ?callable $progress, string $phase = 'capture'): \Generator
@@ -374,16 +443,21 @@ final class V4Capture
         return $decision;
     }
 
-    private function rememberEntry(array $entry, array &$summary, ?callable $progress): void
+    private function rememberEntry(array $entry, array &$summary, ?callable $progress, CaptureMetadataBatch $inventory, ?CaptureMetadataBatch $contents): void
     {
-        if ($this->inventory->get(self::key($entry)) !== null) { return; }
+        $key = self::key($entry);
         $metadata = ['stat' => self::savedStat($entry), 'type' => $entry['type'], 'mode' => $entry['mode'], 'selected' => true];
         if ($entry['type'] === 'file') {
-            $contents = $this->scannedContents;
-            $metadata['sha256'] = $this->readFile($entry, $contents === null ? null : static function (string $bytes) use ($contents): void { self::rememberContent($contents, $bytes); }, $progress, 'scan');
+            $metadata['sha256'] = $this->readFile($entry, $contents === null ? null : function (string $bytes) use ($contents): void {
+                $started = hrtime(true);
+                $contents->put(V4Format::contentId(strlen($bytes), hash('sha256', $bytes)), []);
+                $this->addFileWork('Index', hrtime(true) - $started);
+            }, $progress, 'scan');
         }
         if (isset($entry['target'])) { $metadata['targetSha256'] = hash('sha256', $entry['target']); }
-        $this->inventory->put(self::key($entry), $metadata);
+        $started = hrtime(true);
+        $inventory->put($key, $metadata);
+        $this->addFileWork('Index', hrtime(true) - $started);
         ++$summary['selected'];
         ++$summary[$entry['type'] === 'file' ? 'files' : ($entry['type'] === 'directory' ? 'directories' : 'links')];
         if ($entry['type'] === 'file') { $summary['fileBytes'] += $entry['stat']['size']; $this->sizeLimit($summary['fileBytes']); }
@@ -391,7 +465,7 @@ final class V4Capture
 
     private function savedEntry(array $entry): ?array
     {
-        $saved = $this->inventory->get(self::key($entry));
+        $saved = $this->inventoryEntry(self::key($entry));
         if ($saved === null && !$entry['selected']) { return null; }
         $targetHash = isset($entry['target']) ? hash('sha256', $entry['target']) : null;
         if ($saved === null || $saved['stat'] !== self::savedStat($entry) || $saved['type'] !== $entry['type'] || ($saved['targetSha256'] ?? null) !== $targetHash) { throw new RuntimeException('Source entry metadata changed during capture.'); }
@@ -414,17 +488,18 @@ final class V4Capture
             if ($part === '..') { array_pop($parts); } else { $parts[] = $part; }
         }
         if ($parts === []) { return; }
-        $target = $this->inventory->get(hash('sha256', $entry['rootId'] . '/' . implode('/', $parts)));
+        $target = $this->inventoryEntry(hash('sha256', $entry['rootId'] . '/' . implode('/', $parts)));
         if ($target === null || !$target['selected'] || !in_array($target['type'], ['file', 'directory'], true)) { throw new RuntimeException('A saved symbolic link targets an excluded source entry.'); }
     }
 
     private function readFile(array $entry, ?callable $consume = null, ?callable $progress = null, string $phase = 'capture'): string
     {
-        FileSafety::assertNoLinks($entry['absolute']);
-        $stream = @fopen($entry['absolute'], 'rb');
-        if ($stream === false) { throw new RuntimeException('Cannot read a source file.'); }
-        $hash = hash_init('sha256'); $size = 0; $nextProgress = 33554432; $lastProgress = time();
+        $started = hrtime(true); $other = 0; $stream = null;
         try {
+            FileSafety::assertNoLinks($entry['absolute']);
+            $stream = @fopen($entry['absolute'], 'rb');
+            if ($stream === false) { throw new RuntimeException('Cannot read a source file.'); }
+            $hash = hash_init('sha256'); $size = 0; $nextProgress = 33554432; $lastProgress = time();
             $this->assertFileStat($entry, fstat($stream));
             while (!feof($stream)) {
                 $bytes = fread($stream, V4Format::MAX_CONTENT_BYTES);
@@ -434,9 +509,16 @@ final class V4Capture
                 $size += strlen($bytes); $this->sizeLimit($size);
                 if ($size > $entry['stat']['size']) { throw new RuntimeException('A source file grew during capture.'); }
                 hash_update($hash, $bytes);
-                if ($consume !== null) { $consume($bytes); }
+                if ($consume !== null) {
+                    $paused = hrtime(true);
+                    try { $consume($bytes); }
+                    finally { $other += hrtime(true) - $paused; }
+                }
                 if ($progress !== null && ($size >= $nextProgress || time() - $lastProgress >= 15)) {
-                    $progress(['phase' => $phase, 'fileBytes' => $size]); $nextProgress = $size + 33554432; $lastProgress = time();
+                    $paused = hrtime(true);
+                    try { $progress(['phase' => $phase, 'fileBytes' => $size]); }
+                    finally { $other += hrtime(true) - $paused; }
+                    $nextProgress = $size + 33554432; $lastProgress = time();
                 }
             }
             if ($size !== $entry['stat']['size']) { throw new RuntimeException('A source file changed size during capture.'); }
@@ -444,7 +526,10 @@ final class V4Capture
             clearstatcache(true, $entry['absolute']);
             $this->assertFileStat($entry, @lstat($entry['absolute']));
             return hash_final($hash);
-        } finally { fclose($stream); }
+        } finally {
+            if (is_resource($stream)) { fclose($stream); }
+            $this->addFileWork('Read', hrtime(true) - $started - $other);
+        }
     }
 
     private function assertFileStat(array $entry, $actual): void
@@ -463,9 +548,12 @@ final class V4Capture
 
     private static function key(array $entry): string { return hash('sha256', $entry['rootId'] . '/' . $entry['path']); }
 
-    private static function rememberContent(MetadataMap $selected, string $bytes): void
+    private function rememberContent(MetadataMap $selected, string $bytes): void
     {
-        $selected->put(V4Format::contentId(strlen($bytes), hash('sha256', $bytes)), []);
+        $id = V4Format::contentId(strlen($bytes), hash('sha256', $bytes));
+        $started = hrtime(true);
+        $selected->put($id, []);
+        $this->addFileWork('Index', hrtime(true) - $started);
     }
 
     private static function rejectAgeIdentity(string $prefix): void

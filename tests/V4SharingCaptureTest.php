@@ -108,6 +108,20 @@ final class V4SharingCaptureTest extends TestCase
         self::assertSame(0, count(array_filter($this->packs($again), static fn(array $object): bool => $object['cipherFile'] !== null)));
     }
 
+    public function testFilteredCaptureCollectsMembershipOnlyWhenReadyPacksExist(): void
+    {
+        $source = Fixture::temp();
+        Fixture::write($source, 'visible.php', 'visible body');
+        Fixture::write($source, 'private.php', 'private body');
+        $rules = ['version' => 2, 'preset' => 'custom', 'paths' => ['private.php' => 'exclude']];
+        $first = $this->capture($source, new V4DatabaseWpdbFake(), $rules);
+        self::assertSame(0, $first['measurements']['scanCollectedContents']);
+        $this->upload($first);
+        $second = $this->capture($source, new V4DatabaseWpdbFake(), $rules);
+        self::assertSame(1, $second['measurements']['scanCollectedContents']);
+        self::assertSame($this->packKeys($first), $this->packKeys($second));
+    }
+
     public function testChangedRootRequiresAllPackMembersEvenForACompletePolicy(): void
     {
         $source = Fixture::temp(); Fixture::write($source, 'public.php', 'allowed body'); Fixture::write($source, 'private.php', 'excluded body');

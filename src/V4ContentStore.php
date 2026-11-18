@@ -13,7 +13,7 @@ final class V4ContentStore
     private array $recipients;
     private string $directory;
     private string $scopeId;
-    private MetadataMap $contents;
+    private CaptureMetadataBatch $contents;
     private V4Pages $pages;
     private string $state = 'open';
     private array $buffers = [];
@@ -28,6 +28,7 @@ final class V4ContentStore
     private array $pendingPacks = [];
     /** Elapsed time, calls, packs and ciphertext bytes of shared-pack verification. Measurement only. */
     private array $verification = ['nanoseconds' => 0, 'calls' => 0, 'packs' => 0, 'bytes' => 0];
+    private int $indexNanoseconds = 0;
     private ?string $rootScopeSha256;
     private bool $full;
     private $heartbeat;
@@ -42,7 +43,7 @@ final class V4ContentStore
             throw new InvalidArgumentException('V4 content recipients differ from the storage scope.');
         }
         $this->pages = new V4Pages($age, $recipients, $this->directory, $snapshotId, 'packs');
-        $this->contents = MetadataMap::createProcessLocal($this->directory . '/content-map');
+        $this->contents = new CaptureMetadataBatch(MetadataMap::createProcessLocal($this->directory . '/content-map'), $heartbeat);
         $this->age = $age; $this->recipients = $recipients;
         $this->index = $index; $this->rootScopeSha256 = $rootScopeSha256;
         $this->full = $full; $this->selectedContents = $selectedContents;
@@ -63,14 +64,17 @@ final class V4ContentStore
                 throw new InvalidArgumentException('Invalid v4 content lane.');
             }
             $size = strlen($bytes); $sha256 = hash('sha256', $bytes); $id = V4Format::contentId($size, $sha256);
-            $existing = $this->contents->get($id);
+            $partitionInitialized = null;
+            $started = hrtime(true);
+            $existing = $this->contents->get($id, $partitionInitialized);
+            $this->indexNanoseconds += hrtime(true) - $started;
             if ($existing !== null) { V4Format::validateContent($existing); return $existing; }
             if ($this->contentCount >= V4Format::MAX_PAGES * V4Format::MAX_PAGE_RECORDS) {
                 throw new RuntimeException('V4 content count limit exceeded.');
             }
             $reused = $this->reuse($id, $size, $sha256);
             if ($reused['reference'] !== null) {
-                $this->contents->put($id, $reused['reference']); ++$this->contentCount;
+                $this->rememberContent($id, $reused['reference'], $partitionInitialized); ++$this->contentCount;
                 $this->sharing['reusedBytes'] += $size;
                 return $reused['reference'];
             }
@@ -88,7 +92,7 @@ final class V4ContentStore
             if ($reused['repacked']) { $this->sharing['repackedBytes'] += $size; $this->buffers[$lane]['repacked'] = true; }
             $this->buffers[$lane]['contents'][] = ['id' => $id, 'size' => $size, 'sha256' => $sha256, 'bytes' => $bytes];
             $this->buffers[$lane]['size'] += $size; $this->bufferBytes += $size;
-            $this->contents->put($id, $ref); ++$this->contentCount;
+            $this->rememberContent($id, $ref, $partitionInitialized); ++$this->contentCount;
             if ($this->buffers[$lane]['size'] >= V4Format::MAX_PACK_BYTES
                 || count($this->buffers[$lane]['contents']) >= V4Format::MAX_PACK_MEMBERS) { $this->flush($lane); }
             elseif ($this->bufferBytes >= V4Format::MAX_PACK_BYTES) { $this->flush($this->largestLane()); }
@@ -99,11 +103,47 @@ final class V4ContentStore
     /** Totals of shared-pack verification so far: nanoseconds, calls, packs and bytes. Measurement only. */
     public function verificationTotals(): array { return $this->verification; }
 
+    /** Time spent accessing capture maps and the sharing index, excluding shared-pack verification. */
+    public function indexNanoseconds(): int { return $this->indexNanoseconds; }
+
+    private function rememberContent(string $key, array $value, bool $partitionInitialized): void
+    {
+        $started = hrtime(true);
+        // Write the first record immediately so every later lookup, including a pending hit, still verifies the on-disk leaf.
+        $this->contents->put($key, $value, !$partitionInitialized);
+        $this->indexNanoseconds += hrtime(true) - $started;
+    }
+
+    public function flushContentReferences(): void
+    {
+        if ($this->state !== 'open') { throw new RuntimeException('V4 content store is no longer open.'); }
+        $started = hrtime(true);
+        try { $this->contents->flush(); }
+        catch (\Throwable $error) { $this->fail(); throw $error; }
+        finally { $this->indexNanoseconds += hrtime(true) - $started; }
+    }
+
+    private function mapGet(MetadataMap $map, string $key): ?array
+    {
+        $started = hrtime(true);
+        $value = $map->get($key);
+        $this->indexNanoseconds += hrtime(true) - $started;
+        return $value;
+    }
+
+    private function mapPut(MetadataMap $map, string $key, array $value): void
+    {
+        $started = hrtime(true);
+        $map->put($key, $value);
+        $this->indexNanoseconds += hrtime(true) - $started;
+    }
+
     public function finish(): array
     {
         if ($this->state === 'failed') { throw new RuntimeException('V4 content store failed.'); }
         if ($this->state === 'finished') { return $this->result; }
         try {
+            $this->flushContentReferences();
             $this->verifyPending();
             foreach (array_keys($this->buffers) as $lane) { $this->pulseHeartbeat(); $this->flush($lane); $this->pulseHeartbeat(); }
             $pages = $this->pages->finish();
@@ -133,7 +173,11 @@ final class V4ContentStore
         $buffer = $this->buffers[$lane];
         $pack = V4Pack::write($this->age, $this->recipients, $this->directory, $this->scopeId, $lane, $buffer['contents'], $buffer['key']);
         $this->pulseHeartbeat();
-        if ($this->index !== null) { $this->index->recordCandidate($pack['descriptor'], $this->rootScopeSha256); }
+        if ($this->index !== null) {
+            $started = hrtime(true);
+            $this->index->recordCandidate($pack['descriptor'], $this->rootScopeSha256);
+            $this->indexNanoseconds += hrtime(true) - $started;
+        }
         $this->pulseHeartbeat();
         $this->pages->append($pack['descriptor']);
         $this->objects[] = ['object' => $pack['descriptor']['object'], 'cipherFile' => $pack['cipherFile']];
@@ -145,10 +189,12 @@ final class V4ContentStore
     private function reuse(string $id, int $size, string $sha256): array
     {
         if ($this->index === null) { return ['reference' => null, 'repacked' => false]; }
+        $started = hrtime(true);
         $candidate = $this->index->lookup($id);
+        $this->indexNanoseconds += hrtime(true) - $started;
         if ($candidate === null) { return ['reference' => null, 'repacked' => false]; }
         $descriptor = $candidate['descriptor']; $key = $descriptor['object']['key'];
-        $checked = $this->checkedPacks->get($key);
+        $checked = $this->mapGet($this->checkedPacks, $key);
         if ($checked === null && isset($this->pendingPacks[$key])) {
             $pending = $this->pendingPacks[$key];
             if ($pending['descriptor'] !== $descriptor || $pending['rootScopeSha256'] !== $candidate['rootScopeSha256']) { throw new RuntimeException('V4 indexed pack changed during capture.'); }
@@ -159,7 +205,7 @@ final class V4ContentStore
             if (!$eligible && $this->selectedContents !== null) {
                 $eligible = true;
                 foreach ($descriptor['members'] as $member) {
-                    if ($this->selectedContents->get($member['id']) === null) { $eligible = false; break; }
+                    if ($this->mapGet($this->selectedContents, $member['id']) === null) { $eligible = false; break; }
                 }
             }
             $checked = ['eligible' => $eligible];
@@ -195,7 +241,7 @@ final class V4ContentStore
                 ++$position;
             }
             foreach ($this->pendingPacks as $key => $pending) {
-                $this->checkedPacks->put($key, ['eligible' => $pending['eligible']]);
+                $this->mapPut($this->checkedPacks, $key, ['eligible' => $pending['eligible']]);
                 if ($pending['eligible']) {
                     if (count($this->objects) >= V4Format::MAX_OBJECTS - 1) { throw new RuntimeException('V4 ciphertext count limit exceeded.'); }
                     $this->pages->append($pending['descriptor']);

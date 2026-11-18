@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace WordPressR2Backup\Tests;
 
 use PHPUnit\Framework\TestCase;
+use WordPressR2Backup\CaptureMetadataBatch;
 use WordPressR2Backup\MetadataMap;
 
 final class MetadataMapTest extends TestCase
@@ -308,6 +309,38 @@ final class MetadataMapTest extends TestCase
         self::assertSame(self::names($durableDirectory), self::names(dirname($durableDirectory) . '/local'));
         $this->expectException(\RuntimeException::class);
         $local->put('内容/2', ['id' => 'conflict']);
+    }
+
+    public function testNewRecordsCanBeWrittenByPartitionAndLaterBatchesValidateTheExistingLeaves(): void
+    {
+        $directory = Fixture::temp() . '/local';
+        $map = MetadataMap::createProcessLocal($directory, 1024);
+        $keys = [];
+        for ($number = 0; count($keys) < 12; ++$number) {
+            $key = 'batch-' . $number;
+            if (substr(hash('sha256', $key), 0, 3) === 'abc') { $keys[] = $key; }
+        }
+        $values = array_fill_keys($keys, '{"value":"unchanged"}');
+        $map->putProcessLocalBatch($values);
+        $map->putProcessLocalBatch($values);
+        foreach ($keys as $key) { self::assertSame(['value' => 'unchanged'], $map->get($key)); }
+        self::assertFileExists($directory . '/branch-abc');
+        $leaf = $directory . '/leaf-' . substr(hash('sha256', $keys[0]), 0, 4) . '.json';
+        file_put_contents($leaf, 'x', FILE_APPEND);
+        $this->expectException(\JsonException::class);
+        $map->putProcessLocalBatch([$keys[0] => $values[$keys[0]]]);
+    }
+
+    public function testCaptureBufferFlushesAtItsEncodedBytesLimit(): void
+    {
+        $map = MetadataMap::createProcessLocal(Fixture::temp() . '/local');
+        $batch = new CaptureMetadataBatch($map, null);
+        $value = ['metadata' => str_repeat('m', 250000)];
+        for ($number = 0; $number < 18; ++$number) { $batch->put('capture-' . $number, $value); }
+        self::assertSame($value, $map->get('capture-0'));
+        self::assertNull($map->get('capture-17'));
+        $batch->flush();
+        self::assertSame($value, $map->get('capture-17'));
     }
 
     /** @dataProvider powerLossStates */

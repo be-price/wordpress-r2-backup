@@ -66,6 +66,25 @@ final class V4ContentStoreTest extends TestCase
         self::assertSame(['code', 'media'], array_column($this->packDescriptors($result), 'lane'));
     }
 
+    public function testPendingContentReferenceSharesItsPackAndStillValidatesTheStoredLeaf(): void
+    {
+        $store = $this->store();
+        $first = $store->accept('first content', 'code');
+        $prefix = substr(hash('sha256', $first['id']), 0, 3);
+        for ($i = 0; ; ++$i) {
+            $body = 'pending content ' . $i;
+            $id = V4Format::contentId(strlen($body), hash('sha256', $body));
+            if (substr(hash('sha256', $id), 0, 3) === $prefix) { break; }
+        }
+        $pending = $store->accept($body, 'code');
+        $leaf = $this->directory . '/content-map/leaf-' . $prefix . '.json';
+        self::assertStringNotContainsString($pending['id'], file_get_contents($leaf));
+        self::assertSame($pending, $store->accept($body, 'media'));
+        file_put_contents($leaf, 'x', FILE_APPEND);
+        $this->expectException(\JsonException::class);
+        $store->accept($body, 'media');
+    }
+
     public function testMemberLimitStartsAnotherPackWithTheReservedReference(): void
     {
         $store = $this->store(); $first = $store->accept('member-0', 'other');

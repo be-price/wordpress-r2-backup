@@ -8,7 +8,7 @@ require $argv[1] . '/vendor/autoload.php';
 require $argv[1] . '/tests/Fixture.php';
 require $argv[1] . '/tests/WordPressDatabaseTest.php';
 require $argv[1] . '/tests/MemoryR2Transport.php';
-use WordPressR2Backup\{AgeProcess, DirectR2Repository, LiveBackup, Manifest, PrivacyPolicy, SourceRoots, V4Capture, V4ContentIndex, V4Format};
+use WordPressR2Backup\{AgeProcess, BackupHistory, DirectR2Repository, LiveBackup, Manifest, PrivacyPolicy, SourceRoots, V4Capture, V4ContentIndex, V4Format};
 use WordPressR2Backup\Tests\{Fixture, MemoryR2Transport, V4DatabaseWpdbFake};
 
 function check(bool $condition, string $message): void { if (!$condition) { throw new RuntimeException($message); } }
@@ -40,7 +40,7 @@ $repository = new DirectR2Repository($connection, $transport, null, static funct
 $scope = $repository->storageScope() + ['keySetId' => Manifest::keySetId($recipients), 'encoding' => V4Format::ENCODING];
 $index = V4ContentIndex::openOrCreate(Fixture::temp(), $scope, $repository);
 $class = new ReflectionClass(LiveBackup::class); $backup = $class->newInstanceWithoutConstructor();
-foreach (['repository' => $repository, 'settings' => $settings, 'workspace' => $workspace] as $name => $value) { $property = $class->getProperty($name); $property->setAccessible(true); $property->setValue($backup, $value); }
+foreach (['repository' => $repository, 'settings' => $settings, 'workspace' => $workspace, 'history' => new BackupHistory($workspace)] as $name => $value) { $property = $class->getProperty($name); $property->setAccessible(true); $property->setValue($backup, $value); }
 $method = static function (string $name) use ($class): ReflectionMethod { $method = $class->getMethod($name); $method->setAccessible(true); return $method; };
 $stepV4 = $method('stepV4'); $saveJob = $method('saveJob'); $readJob = $method('readJob');
 $pathOf = static fn (string $key): string => '/backup-test/wordpress-r2/' . $connection['unitId'] . '/' . $key;

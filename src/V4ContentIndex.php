@@ -163,9 +163,11 @@ final class V4ContentIndex
         }
     }
 
-    public function requiresMembershipProof(bool $full, string $rootScopeSha256): bool
+    /** A filtered selection needs proof for any ready pack, independently of the source roots. */
+    public function requiresMembershipProof(bool $full, ?string $rootScopeSha256 = null): bool
     {
-        $this->assertLocked(); self::digest($rootScopeSha256);
+        $this->assertLocked();
+        if ($full || $rootScopeSha256 !== null) { self::digest($rootScopeSha256); }
         foreach ($this->packs->entries() as $key => $pack) {
             $this->validatePackRecord($key, $pack);
             if ($pack['status'] === 'ready' && (!$full || $pack['rootScopeSha256'] !== $rootScopeSha256)) { return true; }
