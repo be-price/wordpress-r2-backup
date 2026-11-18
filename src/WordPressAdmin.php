@@ -50,7 +50,7 @@ final class WordPressAdmin
             add_management_page($title, $title, 'manage_options', self::PAGE, [$admin, 'render']);
             if (!defined('WRB_SYNTHETIC_RUNTIME_PROFILE')) {
                 add_menu_page('R2 Backup', 'R2 Backup', 'manage_options', self::PAGE, [$admin, 'render'], 'dashicons-database', 58);
-                foreach (['backup' => 'バックアップ', 'restore' => '復元', 'storage' => 'ストレージ設定', 'privacy' => '保存範囲と除外設定', 'settings' => '保存期間と容量'] as $view => $label) {
+                foreach (['backup' => 'バックアップ設定', 'history' => '実行履歴', 'restore' => '復元', 'storage' => 'ストレージ設定', 'privacy' => '保存範囲と除外設定', 'settings' => '保存期間と容量'] as $view => $label) {
                     $slug = self::PAGE . ($view === 'backup' ? '' : '&wrb_view=' . $view);
                     add_submenu_page(self::PAGE, $label, $label, 'manage_options', $slug, [$admin, 'render']);
                 }
@@ -61,14 +61,14 @@ final class WordPressAdmin
         // WordPress titles every submenu of this page after its first entry; the browser tab should name the screen in use.
         add_filter('admin_title', static function ($title) {
             if (defined('WRB_SYNTHETIC_RUNTIME_PROFILE') || ($_GET['page'] ?? '') !== self::PAGE || !is_string($title)) { return $title; }
-            $labels = ['restore' => '復元', 'storage' => 'ストレージ設定', 'privacy' => '保存範囲と除外設定', 'settings' => '保存期間と容量'];
-            $view = $_GET['wrb_view'] ?? '';
-            return is_string($view) && isset($labels[$view]) ? str_replace('バックアップ', $labels[$view], $title) : $title;
+            $labels = ['history' => '実行履歴', 'restore' => '復元', 'storage' => 'ストレージ設定', 'privacy' => '保存範囲と除外設定', 'settings' => '保存期間と容量'];
+            $view = $_GET['wrb_view'] ?? 'backup';
+            return is_string($view) && isset($labels[$view]) ? str_replace(['バックアップ設定', 'バックアップ'], $labels[$view], $title) : $title;
         });
         add_filter('submenu_file', static function ($submenu) {
             if (defined('WRB_SYNTHETIC_RUNTIME_PROFILE') || ($_GET['page'] ?? '') !== self::PAGE) { return $submenu; }
             $view = $_GET['wrb_view'] ?? 'backup';
-            return is_string($view) && in_array($view, ['restore', 'storage', 'privacy', 'settings'], true) ? self::PAGE . '&wrb_view=' . $view : self::PAGE;
+            return is_string($view) && in_array($view, ['history', 'restore', 'storage', 'privacy', 'settings'], true) ? self::PAGE . '&wrb_view=' . $view : self::PAGE;
         });
         foreach (array_keys(self::FIELDS) as $command) {
             add_action('admin_post_wrb_' . $command, static function () use ($admin, $command): void {
@@ -77,7 +77,7 @@ final class WordPressAdmin
         }
         add_action('admin_enqueue_scripts', static function (string $hook) use ($pluginFile): void {
             if ($hook === 'tools_page_' . self::PAGE || $hook === 'toplevel_page_' . self::PAGE) {
-                wp_enqueue_style('wrb-synthetic-admin', plugins_url('assets/admin.css', $pluginFile), [], '0.6.3');
+                wp_enqueue_style('wrb-synthetic-admin', plugins_url('assets/admin.css', $pluginFile), [], '0.6.4');
             }
         });
     }

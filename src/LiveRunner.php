@@ -15,17 +15,17 @@ final class LiveRunner
     }
 
     public function start(): array { return $this->launch(false); }
-    public function startOnline(): array { return $this->launch(false, 'online'); }
+    public function startOnline(?array $schedule = null): array { return $this->launch(false, 'online', $schedule); }
     public function resume(): array { return $this->launch(true); }
     public function state(): ?array { return $this->backup->state(); }
 
-    private function launch(bool $resume, string $mode = 'maintenance'): array
+    private function launch(bool $resume, string $mode = 'maintenance', ?array $schedule = null): array
     {
         $workspace = $this->backup->workspace(); $lock = self::runnerLock($workspace, true);
         $launchId = bin2hex(random_bytes(32)); $token = bin2hex(random_bytes(32)); $ticket = null; $queued = false;
         try {
             $php = self::phpBinary();
-            $state = $this->backup->queue($launchId, $resume, $mode); $queued = true;
+            $state = $this->backup->queue($launchId, $resume, $mode, $schedule); $queued = true;
             $root = realpath(rtrim(ABSPATH, '/'));
             if ($root === false) { throw new \RuntimeException('WordPressの保存場所を検証できません。'); }
             FileSafety::assertRegularFile($root . '/wp-load.php');

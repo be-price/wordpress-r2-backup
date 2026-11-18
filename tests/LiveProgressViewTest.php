@@ -133,6 +133,44 @@ final class LiveProgressViewTest extends TestCase
         self::assertStringContainsString('取得方法: 保守なし', $html);
     }
 
+    public function testHistoryDisplaysRuleNamesOnlyForMatchingPolicy(): void
+    {
+        $script = <<<'SCRIPT'
+namespace WordPressR2Backup;
+function esc_html($value) { return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8'); }
+function number_format_i18n($value) { return number_format($value); }
+require AUTOLOAD;
+$policy = ['version' => 2, 'preset' => 'custom', 'paths' => ['cache/<demo>' => 'exclude', 'keep' => 'include'],
+    'rows' => ['wp_demo' => ['email' => ['private-value' => 'exclude']]]];
+$snapshot = BackupHistory::settingsSnapshot(['policy' => $policy], 'online');
+$render = new \ReflectionMethod(LiveHistoryView::class, 'renderSettings');
+$render->setAccessible(true);
+foreach ([$policy, ['version' => 2], null] as $current) {
+    ob_start();
+    $render->invoke(null, ['settings' => $snapshot], 'running', $current);
+    $variants[] = ob_get_clean();
+}
+echo json_encode($variants, JSON_THROW_ON_ERROR);
+SCRIPT;
+        $script = str_replace('AUTOLOAD', var_export(dirname(__DIR__) . '/vendor/autoload.php', true), $script);
+        $process = proc_open([PHP_BINARY, '-r', $script], [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['redirect', 1]], $pipes);
+        $output = stream_get_contents($pipes[1]); fclose($pipes[1]);
+        self::assertSame(0, proc_close($process), $output);
+        [$matching, $changed, $missing] = json_decode($output, true, 16, JSON_THROW_ON_ERROR);
+        self::assertStringContainsString('<summary>ファイル・ディレクトリ 1件</summary>', $matching);
+        self::assertStringContainsString('cache/&lt;demo&gt;', $matching);
+        foreach ([$matching, $changed, $missing] as $html) {
+            self::assertStringContainsString('行 1件', $html);
+            self::assertStringNotContainsString('private-value', $html);
+            self::assertStringNotContainsString('<code>keep</code>', $html);
+        }
+        foreach ([$changed, $missing] as $html) {
+            self::assertStringContainsString('ファイル・ディレクトリ 1件', $html);
+            self::assertStringContainsString('当時の除外対象の名前は履歴に記録されていません。', $html);
+            self::assertStringNotContainsString('cache/', $html);
+        }
+    }
+
     private function render(?array $state, bool $busy, ?array $schedule = null, ?array $settings = null, array $runner = []): string
     {
         $script = <<<'SCRIPT'

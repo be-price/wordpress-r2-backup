@@ -43,7 +43,15 @@ $runner=new LiveRunner($settings,static function(string $php,string $path,array 
 try {
   $state=$runner->start(); $blocked=false;
   try { $runner->start(); } catch(\RuntimeException $e) { $blocked=true; }
-  echo json_encode(['state'=>$state,'ticket'=>$ticket,'calls'=>$calls,'blocked'=>$blocked]);
+  $workspace=LiveSettings::workspace();
+  $history=(new BackupHistory($workspace))->find($state['id']);
+  $firstTicket=$ticket;
+  // An unsafe journal file must be left alone and may not prevent legitimate queue/cancel operations.
+  chmod($workspace.'/backup-history.json',0644);
+  (new LiveBackup($settings))->cancel();
+  $withoutHistory=$runner->start();
+  echo json_encode(['state'=>$state,'ticket'=>$firstTicket,'calls'=>$calls,'blocked'=>$blocked,'history'=>$history,
+    'afterHistoryError'=>$withoutHistory['status'],'unsafeMode'=>fileperms($workspace.'/backup-history.json')&0777]);
 } finally {
   $workspace=LiveSettings::workspace();
   foreach(new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($workspace,\FilesystemIterator::SKIP_DOTS),\RecursiveIteratorIterator::CHILD_FIRST) as $entry) { $entry->isDir()?rmdir($entry->getPathname()):unlink($entry->getPathname()); }
@@ -57,7 +65,12 @@ PHP;
         self::assertSame(0, proc_close($process), $error);
         $result = json_decode($output, true, 32, JSON_THROW_ON_ERROR);
         self::assertSame('queued', $result['state']['status']);
-        self::assertSame(1, $result['calls']); self::assertTrue($result['blocked']);
+        self::assertSame(2, $result['calls']); self::assertTrue($result['blocked']);
+        self::assertSame('queued', $result['afterHistoryError']);
+        self::assertSame(0644, $result['unsafeMode']);
+        self::assertSame('queued', $result['history']['status']);
+        self::assertSame('manual', $result['history']['source']);
+        self::assertSame('backup-test', $result['history']['settings']['bucket']);
         self::assertStringNotContainsString(str_repeat('c', 64), $output);
         self::assertArrayNotHasKey('token', $result['ticket']);
     }
@@ -156,7 +169,9 @@ try {
   $failure=$workspace.'/runner-failure-'.$state['launchId'].'.json';
   $deadline=microtime(true)+8;
   while(!is_file($failure)&&microtime(true)<$deadline) { usleep(50000); clearstatcache(); }
-  echo json_encode(['initial'=>$state['status'],'elapsed'=>$elapsed,'loaded'=>is_file(ABSPATH.'loaded'),'final'=>$runner->state()['status']]);
+  $history=(new BackupHistory($workspace))->find($state['id']);
+  echo json_encode(['initial'=>$state['status'],'elapsed'=>$elapsed,'loaded'=>is_file(ABSPATH.'loaded'),'final'=>$runner->state()['status'],
+    'history'=>$history['status'],'events'=>array_column($history['events'],'code')]);
 } finally {
   foreach(new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($workspace,\FilesystemIterator::SKIP_DOTS),\RecursiveIteratorIterator::CHILD_FIRST) as $entry) { $entry->isDir()?rmdir($entry->getPathname()):unlink($entry->getPathname()); }
   rmdir($workspace);
@@ -170,6 +185,8 @@ PHP;
         $result = json_decode($output, true, 32, JSON_THROW_ON_ERROR);
         self::assertSame('queued', $result['initial']); self::assertLessThan(1.5, $result['elapsed']);
         self::assertTrue($result['loaded']); self::assertSame('failed', $result['final']);
+        self::assertSame('failed', $result['history']);
+        self::assertSame(['queued', 'launch_failed'], $result['events']);
     }
 
     public function testCancelledQueuedTicketCannotBeginCapture(): void

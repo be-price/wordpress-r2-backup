@@ -51,16 +51,23 @@ final class BackupSchedulerLaunchIntegrationTest extends TestCase
         self::assertSame('started',$status['schedule']['lastResult']); self::assertSame('queued',$status['operation']['status']);
         self::assertSame('online',$status['operation']['consistencyMode']); self::assertSame($seed['digest'],$status['operation']['settingsDigest']);
         self::assertNotEmpty($status['operation']['sharingDigest']); $original=$status['operation'];
+        $history=$this->evalWp('echo json_encode((new WordPressR2Backup\\BackupHistory(WordPressR2Backup\\LiveSettings::workspace()))->recent());');
+        self::assertCount(1,$history);
+        self::assertSame($original['id'],$history[0]['id']);
+        self::assertSame('scheduled',$history[0]['source']);
+        self::assertSame($status['schedule']['lastAttempt'],$history[0]['settings']['schedule']['slot']);
         $run=$this->process([PHP_BINARY,'-d','sys_temp_dir='.$this->scratch,$plugin.'/schedule.php',$this->wp->root()]); self::assertSame(0,$run['exit'],$run['err']);
         $again=$this->evalWp('echo json_encode(["schedule"=>get_option("wrb_live_schedule_runner"),"operation"=>get_option("wrb_live_operation")]);');
         self::assertSame($original,$again['operation']); self::assertSame('not_due',$again['schedule']['status']); self::assertSame('started',$again['schedule']['lastResult']);
         $this->evalWp('delete_option("wrb_live_schedule_runner"); echo "{}";');
         $run=$this->process([PHP_BINARY,'-d','sys_temp_dir='.$this->scratch,$plugin.'/schedule.php',$this->wp->root()]); self::assertSame(0,$run['exit'],$run['err']);
         $busy=$this->evalWp('echo json_encode(["schedule"=>get_option("wrb_live_schedule_runner"),"operation"=>get_option("wrb_live_operation")]);');
-        self::assertSame('failed',$busy['schedule']['lastResult']); self::assertSame($original,$busy['operation']);
+        self::assertSame('skipped',$busy['schedule']['lastResult']); self::assertSame($original,$busy['operation']);
         $run=$this->process([PHP_BINARY,'-d','sys_temp_dir='.$this->scratch,$plugin.'/schedule.php',$this->wp->root()]); self::assertSame(0,$run['exit'],$run['err']);
         $busyAgain=$this->evalWp('echo json_encode(["schedule"=>get_option("wrb_live_schedule_runner"),"operation"=>get_option("wrb_live_operation")]);');
-        self::assertSame('not_due',$busyAgain['schedule']['status']); self::assertSame('failed',$busyAgain['schedule']['lastResult']); self::assertSame($original,$busyAgain['operation']);
+        self::assertSame('not_due',$busyAgain['schedule']['status']); self::assertSame('skipped',$busyAgain['schedule']['lastResult']); self::assertSame($original,$busyAgain['operation']);
+        $deduplicated=$this->evalWp('echo json_encode((new WordPressR2Backup\\BackupHistory(WordPressR2Backup\\LiveSettings::workspace()))->recent());');
+        self::assertSame($history,$deduplicated);
         $workspace=$this->evalWp('delete_option("wrb_live_schedule_runner"); update_option("wrb_live_operation",["status"=>"complete"],false); echo json_encode(["path"=>WordPressR2Backup\\LiveSettings::workspace()]);')['path'];
         $held=fopen($workspace.'/runner.lock','c+b'); self::assertIsResource($held); self::assertTrue(flock($held,LOCK_EX|LOCK_NB));
         try {

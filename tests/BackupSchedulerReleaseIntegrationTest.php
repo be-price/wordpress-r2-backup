@@ -33,9 +33,9 @@ final class BackupSchedulerReleaseIntegrationTest extends TestCase
             .'echo json_encode(["ok"=>$ok]);';
         self::assertTrue($this->invoke($call)['ok']);
         $runner=$release.'/src/LiveRunner.php'; $original=(string)file_get_contents($runner);
-        $old='    public function startOnline(): array { return $this->launch(false, \'online\'); }';
-        self::assertStringContainsString($old,$original);
-        file_put_contents($runner,str_replace($old,'',$original));
+        $withoutOnline=preg_replace('/^    public function startOnline\([^\n]*\n/m','',$original,-1,$removed);
+        self::assertSame(1,$removed);
+        file_put_contents($runner,$withoutOnline);
         try { self::assertFalse($this->invoke($call)['ok'], 'an older runner without startOnline must not be accepted'); }
         finally { file_put_contents($runner,$original); }
         $wrong='require_once '.var_export($release.'/vendor/autoload.php',true).';'

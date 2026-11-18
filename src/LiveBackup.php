@@ -10,11 +10,14 @@ final class LiveBackup
     private array $settings;
     private string $workspace;
     private DirectR2Repository $repository;
+    private BackupHistory $history;
+    private ?string $historyUploadRun = null;
 
     public function __construct(array $settings, ?DirectR2Repository $repository = null)
     {
         $this->settings = $settings;
         $this->workspace = LiveSettings::workspace();
+        $this->history = new BackupHistory($this->workspace);
         $this->repository = $repository ?? new DirectR2Repository(array_intersect_key($settings, array_flip(['accountId', 'bucket', 'accessKeyId', 'secretAccessKey', 'unitId'])));
     }
 
@@ -78,12 +81,10 @@ final class LiveBackup
     {
         $state = $this->operationState();
         if (!is_array($state)) { return null; }
-        if ($state['status'] === 'queued' && isset($state['launchId']) && preg_match('/\A[a-f0-9]{64}\z/D', $state['launchId'])) {
-            $failed = $this->workspace . '/runner-failure-' . $state['launchId'] . '.json';
-            if (is_file($failed) && !is_link($failed) && (fileperms($failed) & 0777) === 0600 && filesize($failed) < 4096) {
-                $failure = json_decode((string) file_get_contents($failed), true);
-                if (is_array($failure) && ($failure['launchId'] ?? '') === $state['launchId']) { $state['status'] = 'failed'; $state['message'] = 'バックグラウンド処理を開始できませんでした。未完了の実行を取り消してからPHP CLIの設定を確認してください。'; }
-            }
+        if ($state['status'] === 'queued' && is_string($state['launchId'] ?? null) && $this->history->hasLaunchFailure($state['launchId'])) {
+            $this->history->launchFailure($state);
+            $state['status'] = 'failed';
+            $state['message'] = 'バックグラウンド処理を開始できませんでした。未完了の実行を取り消してからPHP CLIの設定を確認してください。';
         }
         $path = $this->workspace . '/progress.json';
         if (is_file($path) && !is_link($path) && filesize($path) < 16384) {
@@ -97,7 +98,7 @@ final class LiveBackup
 
     public function workspace(): string { return $this->workspace; }
 
-    public function queue(string $launchId, bool $resume = false, string $mode = 'maintenance'): array
+    public function queue(string $launchId, bool $resume = false, string $mode = 'maintenance', ?array $schedule = null): array
     {
         $this->assertReady();
         if (!in_array($mode, ['maintenance', 'online'], true) || ($resume && $mode !== 'maintenance')) { throw new \RuntimeException('取得方式が不正です。'); }
@@ -116,7 +117,10 @@ final class LiveBackup
                 $this->assertBoundSettingsUnchanged($state);
             }
             $state['status'] = 'queued'; $state['launchId'] = $launchId; $state['message'] = 'バックグラウンド処理の開始を待っています。';
-            $this->setState($state); return $state;
+            $this->setState($state);
+            if ($resume) { $this->history->record($state, 'resume_queued'); }
+            else { $this->history->start($state, $this->settings, $mode, $schedule); }
+            return $state;
         } finally { flock($lock, LOCK_UN); fclose($lock); }
     }
 
@@ -128,7 +132,7 @@ final class LiveBackup
             if (!is_array($state) || $state['status'] !== 'queued' || !hash_equals((string) ($state['launchId'] ?? ''), $launchId)) { throw new \RuntimeException('起動待ちの操作を検証できません。'); }
             $this->assertQueuedTicket($state, $ticket);
             $resume = ($state['resumeStatus'] ?? '') === 'uploading';
-            if ($resume) { $state['status'] = 'uploading'; unset($state['resumeStatus']); $this->setState($state); }
+            if ($resume) { $state['status'] = 'uploading'; unset($state['resumeStatus']); $this->setState($state); $this->history->record($state, 'resumed'); }
         } finally { flock($lock, LOCK_UN); fclose($lock); }
         if (!$resume) { $state = $this->begin($launchId); }
         while ($state['status'] === 'uploading') { $state = $this->step(); }
@@ -163,6 +167,7 @@ final class LiveBackup
             $state['status'] = ($state['resumeStatus'] ?? '') === 'uploading' ? 'uploading' : 'failed';
             $state['message'] = 'バックグラウンド処理を開始できませんでした。PHP CLIの設定を確認してください。';
             $this->setState($state);
+            $this->history->launchFailure($state);
         }
     }
 
@@ -228,6 +233,8 @@ final class LiveBackup
             if ($mode === 'maintenance') { $state['maintenanceOwner'] = $owner; }
             $state['consistencyMode'] = $mode; $state['settingsDigest'] = $binding['settingsDigest']; $state['sharingDigest'] = $binding['sharingDigest'];
             $this->setState($state);
+            if ($queued) { $this->history->record($state, 'capture_started'); }
+            else { $this->history->start($state, $this->settings, $mode); }
             if (function_exists('set_time_limit')) { @set_time_limit(0); }
             $lastRefresh = 0;
             $progressSnapshot = [];
@@ -264,6 +271,7 @@ final class LiveBackup
             // If state persistence succeeded but a later check failed (or the worker died), step() must still refuse the job.
             // Write this only after the complete capture and all freshness checks; legacy jobs have no captureGuard field.
             $this->writeCaptureGuard($directory, $job['state']);
+            $this->history->record($job['state'], 'upload_started');
             return $job['state'];
         } catch (\Throwable $error) {
             if (isset($state)) {
@@ -271,6 +279,7 @@ final class LiveBackup
                     ? '保守なしでは、対象データベースにInnoDB以外のテーブルがあるため実行できません。'
                     : '取得を完了できませんでした。安全な完了世代は公開していません。';
                 $this->setState($state);
+                $this->history->record($state, BackupHistory::captureError($error));
             }
             throw $error;
         } finally {
@@ -295,6 +304,10 @@ final class LiveBackup
             if (array_key_exists('consistencyMode', $state)) { $this->assertBoundSettingsUnchanged($state); }
             if (!hash_equals($job['settingsDigest'], $this->settingsDigest())) { throw new \RuntimeException('取得後に設定が変わりました。同じ設定に戻してから再開してください。'); }
             if (function_exists('set_time_limit')) { @set_time_limit(0); }
+            if ($this->historyUploadRun !== $state['id']) {
+                $this->history->record($state, 'resumed');
+                $this->historyUploadRun = $state['id'];
+            }
             if (($job['version'] ?? null) === 4) {
                 if (isset($job['sharingDigest']) && !hash_equals($job['sharingDigest'], $this->sharingDigest())) { throw new \RuntimeException('取得後に重複保存の設定が変わりました。同じ設定に戻してから再開してください。'); }
                 $index = isset($job['indexIdentity']) ? $this->contentIndex($directory) : null;
@@ -318,6 +331,7 @@ final class LiveBackup
                 $job['databaseReceipt'] = $receipt;
                 $job['position']++;
             } else {
+                $this->history->record($state, 'final_verification');
                 $data = $this->manifest($job);
                 $cipher = $directory . '/manifest.age';
                 if (!is_file($cipher)) {
@@ -338,14 +352,20 @@ final class LiveBackup
             $this->saveJob($directory, $job);
             $this->setState($job['state']);
             if ($job['state']['status'] === 'complete') {
+                $this->history->record($job['state'], 'complete', array_sum(array_column($objects, 'bytes')) + $receipt['bytes']);
                 $this->clearCiphertexts($directory);
                 try { $this->repository->retention($this->settings['retentionDays']); }
                 catch (\Throwable $error) {
                     $job['state']['message'] .= ' 保存期限の処理を完了できませんでした。保存済み世代は削除せず保持しています。';
                     $this->saveJob($directory, $job); $this->setState($job['state']);
+                    $this->history->record($job['state'], 'retention_failed');
                 }
             }
             return $job['state'];
+        } catch (\Throwable $error) {
+            $this->historyUploadRun = null;
+            if (($state['status'] ?? null) === 'uploading') { $this->history->record($state, BackupHistory::transferError($error)); }
+            throw $error;
         } finally { flock($lock, LOCK_UN); fclose($lock); }
     }
 
@@ -402,11 +422,13 @@ final class LiveBackup
             throw new \RuntimeException('v4バックアップの実行状態が一致しません。');
         }
         if (($job['state']['status'] ?? '') === 'complete' && $job['position'] === count($job['objects']) + 1) {
+            $this->history->record($state, 'final_verification');
             $completed = $this->repository->completed($state['snapshotId']);
             if (($completed['manifest'] ?? null) !== ($job['rootReceipt'] ?? null) || ($completed['objects'] ?? null) !== array_column($job['objects'], 'object')) {
                 throw new \RuntimeException('保存済みv4完了記録を照合できません。');
             }
             $this->setState($job['state']);
+            $this->history->record($job['state'], 'complete', $completed['manifest']['bytes'] + array_sum(array_column($completed['objects'], 'bytes')));
             return $this->finishV4Job($directory, $job, $index);
         }
         if ($job['position'] > count($job['objects'])) { throw new \RuntimeException('v4バックアップの転送位置が不正です。'); }
@@ -449,6 +471,7 @@ final class LiveBackup
             $bytes = 0; for ($done = $firstPosition; $done < $job['position']; ++$done) { $bytes += $job['objects'][$done]['object']['bytes']; }
             $job['state'] = self::withTransferMeasurement($job['state'], $kind, ['ms' => self::elapsedMs($stepStarted), 'steps' => 1, 'objects' => $job['position'] - $firstPosition, 'bytes' => $bytes]);
         } else {
+            $this->history->record($state, 'final_verification');
             $rootStarted = hrtime(true);
             $cipher = $directory . '/manifest.age';
             if (!is_file($cipher)) { (new AgeProcess(AgeBinary::path()))->encryptStream([V4Format::json($job['manifest'])], $cipher, $this->settings['recipients']); }
@@ -476,6 +499,7 @@ final class LiveBackup
         $job['state']['completed'] = $job['position'];
         $this->saveJob($directory, $job); $this->setState($job['state']);
         if ($job['state']['status'] === 'complete') {
+            $this->history->record($job['state'], 'complete', $job['state']['measurements']['transfer']['publication']['bytes']);
             return $this->finishV4Job($directory, $job, $index);
         }
         return $job['state'];
@@ -506,6 +530,7 @@ final class LiveBackup
         catch (\Throwable $error) {
             $job['state']['message'] .= ' 保存期限の処理を完了できませんでした。保存済み世代は削除せず保持しています。';
             $this->setState($job['state']);
+            $this->history->record($job['state'], 'retention_failed');
         }
         $this->removePrivateDirectory($directory);
         return $job['state'];
@@ -566,6 +591,7 @@ final class LiveBackup
             $state['status'] = 'cancelled';
             $state['message'] = '未完了の実行を取り消しました。未完了の暗号文は完了世代として公開していません。';
             $this->setState($state);
+            $this->history->record($state, 'cancelled');
         } finally { flock($lock, LOCK_UN); fclose($lock); }
     }
 

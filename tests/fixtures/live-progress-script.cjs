@@ -28,7 +28,7 @@ class FakeNode {
 let focusCalls = 0;
 const walk = (node, found = []) => { if (node instanceof FakeNode) { found.push(node); node.children.forEach(child => walk(child, found)); } return found; };
 
-function page(state) {
+function page(state, historyOnly) {
     const byId = {};
     const make = (tag, id) => { const node = new FakeNode(tag); if (id) { node.setAttribute('id', id); byId[id] = node; } return node; };
     const progress = make('section', 'wrb-progress'); progress.dataset.wrbState = JSON.stringify(state);
@@ -42,24 +42,28 @@ function page(state) {
     const cancel = make('div'); const cancelSubmit = make('input'); cancelSubmit.setAttribute('type', 'submit'); cancel.append(cancelSubmit);
     cancel.hidden = !(state && ['capturing', 'uploading', 'failed'].includes(state.status)); cancelSubmit.disabled = cancel.hidden;
     cancel.querySelector = selector => (selector.includes('[type="submit"]') ? cancelSubmit : null);
+    const notice = make('div'), title = make('strong'), message = make('p'), link = make('a'), unavailable = make('p'), announce = make('p');
+    notice.hidden = true; unavailable.hidden = true; notice.dataset.historyUrl = 'https://example.invalid/wp-admin/admin.php?page=wrb-synthetic-backup&wrb_view=history';
+    notice.querySelector = selector => ({ '[data-wrb-history-title]': title, '[data-wrb-history-message]': message, '[data-wrb-history-link]': link }[selector] || null);
+    const historyNodes = historyOnly ? { '[data-wrb-history-notice]': notice, '[data-wrb-history-unavailable]': unavailable, '[data-wrb-history-announce]': announce } : {};
     const documentListeners = {};
     const document = {
         visibilityState: 'visible',
-        getElementById: id => byId[id] || null,
+        getElementById: id => historyOnly ? null : (byId[id] || null),
         createElement: tag => new FakeNode(tag),
-        querySelector: selector => ({'[data-wrb-cancel]': cancel, '[name="wrb_manual_mode"]:checked': manualMode, '[data-wrb-maintenance-confirm]': maintenanceConfirm, '[data-wrb-online-confirm]': onlineConfirm}[selector] || null),
+        querySelector: selector => (historyNodes[selector] || {'[data-wrb-cancel]': cancel, '[name="wrb_manual_mode"]:checked': manualMode, '[data-wrb-maintenance-confirm]': maintenanceConfirm, '[data-wrb-online-confirm]': onlineConfirm}[selector] || null),
         querySelectorAll: selector => (selector === '[data-wrb-command]' ? [start, step] : (selector === '[name="wrb_manual_mode"]' ? [manualMode] : [])),
         addEventListener: (type, listener) => { (documentListeners[type] = documentListeners[type] || []).push(listener); },
         dispatch: type => (documentListeners[type] || []).forEach(listener => listener()),
     };
-    return { byId, start, step, cancel, cancelSubmit, manualMode, writers, downtime, onlineAck, maintenanceConfirm, onlineConfirm, document };
+    return { byId, start, step, cancel, cancelSubmit, manualMode, writers, downtime, onlineAck, maintenanceConfirm, onlineConfirm, document, notice, title, message, link, unavailable, announce };
 }
 
-function harness(initialState, responses) {
-    const view = page(initialState);
+function harness(initialState, responses, historyOnly = false) {
+    const view = page(initialState, historyOnly);
     const timers = []; let nextId = 1; const commands = [], requests = [];
     const context = {
-        document: view.document, URLSearchParams, Date, JSON, Math, Number, String, Object, Array, Set, WeakMap, Promise, Error, console,
+        document: view.document, URL, URLSearchParams, Date, JSON, Math, Number, String, Object, Array, Set, WeakMap, Promise, Error, console,
         setTimeout: (fn, delay) => { const id = nextId++; timers.push({ id, fn, delay }); return id; },
         clearTimeout: id => { const index = timers.findIndex(timer => timer.id === id); if (index >= 0) timers.splice(index, 1); },
         fetch: async (url, init) => {
@@ -88,6 +92,35 @@ const uploading = { status: 'uploading', message: '転送中', completed: 3, tot
 const complete = { status: 'complete', message: '完了しました。', completed: 10, total: 10, startedAt: '2026-11-10T03:02:44Z', completedAt: '2026-11-10T04:00:00Z' };
 
 const scenarios = {
+    async 'history-notices-track-exact-run'() {
+        const id = 'a'.repeat(64);
+        const run = { id, status: 'running', title: 'バックアップを実行中', message: '取得中' };
+        const failed = { id, status: 'failed', title: 'バックアップに失敗しました', message: '取得を停止' };
+        const finished = { id: 'b'.repeat(64), status: 'complete', title: 'バックアップが完了しました', message: 'R2の照合まで完了' };
+        const h = harness(null, [{ status: 200, body: { success: true } }, ok(run), { status: 503 }, ok(failed), ok(finished), { status: 403 }], true);
+        await h.fire();
+        assert.strictEqual(h.view.notice.hidden, true, 'WordPress omits data for an empty response');
+        assert.strictEqual(h.view.unavailable.hidden, true);
+        await h.fire();
+        assert.strictEqual(h.view.notice.hidden, false);
+        assert.strictEqual(new URL(h.view.link.href).searchParams.get('wrb_run'), id);
+        assert.strictEqual(h.view.announce.textContent, run.title + '。');
+        assert.deepStrictEqual(h.pendingDelays(), [5000]);
+        await h.fire();
+        assert.strictEqual(h.view.unavailable.hidden, false);
+        assert.strictEqual(h.view.notice.dataset.outcome, 'running', 'last verified outcome is preserved during an outage');
+        await h.fire();
+        assert.strictEqual(h.view.notice.dataset.outcome, 'failed');
+        assert.strictEqual(h.view.announce.textContent, failed.title + '。');
+        await h.fire();
+        assert.strictEqual(new URL(h.view.link.href).searchParams.get('wrb_run'), finished.id);
+        assert.strictEqual(h.view.announce.textContent, finished.title + '。');
+        await h.fire();
+        assert.strictEqual(focusCalls, 0);
+        assert.deepStrictEqual(h.commands, Array(6).fill('history'));
+        assert.ok(h.requests.every(request => request.get('nonce') === 'fixture'));
+        assert.deepStrictEqual(h.pendingDelays(), []);
+    },
     // A completed page keeps checking at a low rate, so a run started elsewhere appears and polling speeds up.
     async 'idle-detects-new-run'() {
         const h = harness(complete, [ok(uploading)]); await h.settle();

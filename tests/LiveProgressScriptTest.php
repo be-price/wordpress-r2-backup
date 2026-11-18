@@ -25,6 +25,7 @@ final class LiveProgressScriptTest extends TestCase
     public function scenarios(): array
     {
         return [
+            'history notifications use authenticated exact run links and preserve confirmed records' => ['history-notices-track-exact-run'],
             'a finished page still checks and picks up a run started elsewhere' => ['idle-detects-new-run'],
             'returning to the tab always rechecks' => ['visible-rechecks'],
             'unconfirmed state disables start and resume' => ['unreachable-disables'],

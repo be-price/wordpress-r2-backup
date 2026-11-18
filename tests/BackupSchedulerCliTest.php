@@ -82,6 +82,14 @@ final class BackupSchedulerCliTest extends TestCase
                 if($i===0) { $recorded=$state['wrb_live_schedule_runner']['lastMissedRecordedAt']; }
                 else { self::assertSame($recorded,$state['wrb_live_schedule_runner']['lastMissedRecordedAt']); }
             }
+            $workspace = realpath($directory) . '/wrb-live-' . hash('sha256', 'https://fixture.invalid/' . $options . '/' . $state['wrb_live_workspace_token']);
+            self::assertFileExists($workspace . '/backup-history.json');
+            $history = (new \WordPressR2Backup\BackupHistory($workspace))->recent();
+            self::assertCount(1, $history);
+            self::assertSame('skipped', $history[0]['status']);
+            self::assertSame('scheduled', $history[0]['source']);
+            self::assertSame($slot, $history[0]['schedule']['slot']);
+            self::assertSame($revision, $history[0]['schedule']['revision']);
         } finally {
             foreach(glob($directory.'/wrb-live-*/*')?:[] as $path) { unlink($path); }
             foreach(glob($directory.'/wrb-live-*')?:[] as $path) { rmdir($path); }

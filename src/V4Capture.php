@@ -266,7 +266,7 @@ final class V4Capture
         yield from $this->roots->entries($this->maintenanceOwner, function (array $entry) use (&$summary, &$observed, $progress, $phase): array {
             $logical = $this->roots->policyPath($entry); $scoped = $entry['rootId'] . '/' . $entry['path'];
             $decision = $this->fileDecision($entry, $logical, $scoped, $progress, $phase);
-            if (!in_array($decision['action'], ['include', 'exclude'], true)) { throw new RuntimeException('A source path requires an explicit inclusion decision.'); }
+            if (!in_array($decision['action'], ['include', 'exclude'], true)) { throw new SourcePathReviewRequired('A source path requires an explicit inclusion decision.'); }
             if ($summary !== null) {
                 ++$summary['entries'];
                 $key = $decision['action'] . ':' . $decision['reason'];

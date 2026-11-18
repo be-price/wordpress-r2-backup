@@ -146,7 +146,7 @@ final class SourceRoots
             $absolute = self::join($root['sourcePath'], $path);
             self::safePath($path, $absolute);
             $folded = mb_convert_case(\Normalizer::normalize($name, \Normalizer::FORM_C), MB_CASE_FOLD, 'UTF-8');
-            if (isset($names[$folded])) { throw self::failure($absolute, 'Normalized source path collision with ' . $names[$folded] . '.'); }
+            if (isset($names[$folded])) { throw new SourcePathCollision('Normalized source path collision.'); }
             $names[$folded] = $name;
             FileSafety::assertNoLinks($directory);
             $stat = self::sourceStat($absolute, $selection === null);

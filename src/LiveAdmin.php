@@ -10,7 +10,7 @@ final class LiveAdmin
         add_action('wp_ajax_wrb_live', [self::class, 'ajax']);
         add_action('admin_enqueue_scripts', static function (string $hook) use ($pluginFile): void {
             if (!in_array($hook, ['tools_page_' . WordPressAdmin::PAGE, 'toplevel_page_' . WordPressAdmin::PAGE], true) || defined('WRB_SYNTHETIC_RUNTIME_PROFILE')) { return; }
-            wp_enqueue_script('wrb-live', plugins_url('assets/live.js', $pluginFile), [], '0.6.2', true);
+            wp_enqueue_script('wrb-live', plugins_url('assets/live.js', $pluginFile), [], '0.6.3', true);
             wp_enqueue_script('wrb-schedule-rules', plugins_url('assets/schedule-rules.js', $pluginFile), [], '1', true);
             wp_localize_script('wrb-live', 'wrbLive', ['url' => admin_url('admin-ajax.php'), 'nonce' => wp_create_nonce('wrb_live')]);
         });
@@ -31,7 +31,7 @@ final class LiveAdmin
     public static function view(): string
     {
         $view = $_POST['wrb_view'] ?? $_GET['wrb_view'] ?? 'backup';
-        return is_string($view) && in_array($view, ['backup', 'restore', 'storage', 'privacy', 'settings'], true) ? $view : 'backup';
+        return is_string($view) && in_array($view, ['backup', 'history', 'restore', 'storage', 'privacy', 'settings'], true) ? $view : 'backup';
     }
 
     private static function adminBase(): string
@@ -44,8 +44,25 @@ final class LiveAdmin
 
     public static function url(string $view): string
     {
-        if (!in_array($view, ['backup', 'restore', 'storage', 'privacy', 'settings'], true)) { $view = 'backup'; }
+        if (!in_array($view, ['backup', 'history', 'restore', 'storage', 'privacy', 'settings'], true)) { $view = 'backup'; }
         return add_query_arg(['page' => WordPressAdmin::PAGE, 'wrb_view' => $view], admin_url(self::adminBase()));
+    }
+
+    public static function history(): ?BackupHistory
+    {
+        // Browsing an unconfigured site should not create a workspace just to show an empty history.
+        $token = get_option('wrb_live_workspace_token', null);
+        if ($token === null || $token === false) { return null; }
+        return new BackupHistory(LiveSettings::workspace());
+    }
+
+    public static function historyNotice(?BackupHistory $history, ?array $state): ?array
+    {
+        if ($history === null) { return null; }
+        $id = $state['id'] ?? null;
+        $current = in_array($state['status'] ?? null, ['queued', 'capturing', 'uploading', 'failed'], true)
+            && LiveHistoryView::validId($id) ? $history->find($id) : null;
+        return LiveHistoryView::notice($current ?? $history->latest());
     }
 
     public static function handle(): void
@@ -55,8 +72,9 @@ final class LiveAdmin
         check_admin_referer('wrb_live', '_wrb_live_nonce');
         $command = isset($_POST['command']) && is_string($_POST['command']) ? $_POST['command'] : '';
         $query = [];
+        $notice = '';
         try {
-            $dispatch = static function () use ($command, &$query): void {
+            $dispatch = static function () use ($command, &$query, &$notice): void {
             // The mutable settings and job state must be authoritative after acquiring operation.lock.
             if (function_exists('wp_cache_delete')) { wp_cache_delete(LiveSettings::OPTION, 'options'); wp_cache_delete(LiveSettings::POLICY_DRAFT, 'options'); wp_cache_delete('wrb_live_operation', 'options'); wp_cache_delete('notoptions', 'options'); }
             $settings = LiveSettings::load();
@@ -71,13 +89,13 @@ final class LiveAdmin
                 $settings = LiveSettings::validate(['accountId' => self::post('accountId', 32), 'bucket' => self::post('bucket', 63), 'accessKeyId' => self::post('accessKeyId', 128), 'secretAccessKey' => self::post('secretAccessKey', 256),
                     'recipients' => [self::post('recipient_0', 128), self::post('recipient_1', 128)],
                     'retentionDays' => array_key_exists('retentionDays', $_POST) ? self::post('retentionDays', 4) : ($settings['retentionDays'] ?? 30), 'policy' => $policy], $settings);
-                LiveSettings::save($settings); self::notice('接続設定を保存しました。接続と復号能力を確認してください。');
+                LiveSettings::save($settings); $notice = '接続設定を保存しました。接続と復号能力を確認してください。';
             } elseif ($command === 'privacy' || $command === 'rules') {
                 $input = self::privacyInput();
                 $rescan = $command === 'rules' || self::post('rescan', 1) === '1';
                 LiveSettings::savePolicy($settings, LiveSettings::applyPrivacyInput(LiveSettings::loadPolicy($settings), $input));
                 if ($rescan) { $query['wrb_scan'] = '1'; }
-                self::notice('保存範囲と除外設定を保存しました。対象の深い照合はバックアップ開始時に行います。');
+                $notice = '保存範囲と除外設定を保存しました。対象の深い照合はバックアップ開始時に行います。';
             } elseif ($command === 'scan') { $query['wrb_scan'] = '1'; }
             elseif ($settings === null) { throw new \RuntimeException('先にストレージ設定を保存してください。'); }
             elseif ($command === 'schedule') {
@@ -93,24 +111,24 @@ final class LiveAdmin
                     $schedule['rules'] = ScheduleRules::validate(is_array($raw) ? wp_unslash($raw) : null);
                 }
                 BackupScheduler::save($schedule);
-                self::notice('定期実行の設定を保存しました。サーバーの定期実行は別途設定してください。');
+                $notice = '定期実行の設定を保存しました。サーバー側の起動状況は定期バックアップの欄で、各回の結果は実行履歴で確認できます。';
             }
             elseif ($command === 'retention') {
                 $settings['retentionDays'] = self::post('retentionDays', 4);
-                LiveSettings::save(LiveSettings::validate($settings, $settings)); self::notice('保存期間を保存しました。');
+                LiveSettings::save(LiveSettings::validate($settings, $settings)); $notice = '保存期間を保存しました。';
             } elseif ($command === 'sharing') {
                 $settings['sharing'] = self::sharingInput();
-                LiveSettings::save(LiveSettings::validate($settings, $settings)); self::notice('保存容量の節約設定を保存しました。次のバックアップから適用します。');
+                LiveSettings::save(LiveSettings::validate($settings, $settings)); $notice = '保存容量の節約設定を保存しました。次のバックアップから適用します。';
             } elseif ($command === 'test') {
-                (new LiveBackup($settings))->connectionTest(); $settings['connectionVerified'] = true; LiveSettings::save($settings); self::notice('R2への保存・読み戻し・確認データの削除が成功しました。');
-            } elseif ($command === 'issue') { self::issue($settings); self::notice('2名分の確認用暗号文を作成しました。手元で復号してください。'); }
-            elseif ($command === 'cancel') { (new LiveBackup($settings))->cancel(); self::notice('未完了の実行を取り消しました。新しいバックアップを開始できます。'); }
+                (new LiveBackup($settings))->connectionTest(); $settings['connectionVerified'] = true; LiveSettings::save($settings); $notice = 'R2への保存・読み戻し・確認データの削除が成功しました。';
+            } elseif ($command === 'issue') { self::issue($settings); $notice = '2名分の確認用暗号文を作成しました。手元で復号してください。'; }
+            elseif ($command === 'cancel') { (new LiveBackup($settings))->cancel(); $notice = '未完了の実行を取り消しました。新しいバックアップを開始できます。'; }
             elseif ($command === 'delete') {
                 if (self::post('confirmDelete', 1) !== '1') { throw new \RuntimeException('削除後は復旧できません。確認してから削除してください。'); }
                 (new LiveBackup($settings))->delete(self::post('snapshot', 64));
-                self::notice('指定した世代の削除を確認しました。他の世代が参照する共有データは保持しています。'); $query['wrb_list'] = '1';
+                $notice = '指定した世代の削除を確認しました。他の世代が参照する共有データは保持しています。'; $query['wrb_list'] = '1';
             }
-            elseif ($command === 'confirm') { self::confirm($settings); self::notice('公開鍵の復号能力を確認しました。'); }
+            elseif ($command === 'confirm') { self::confirm($settings); $notice = '公開鍵の復号能力を確認しました。'; }
             elseif ($command === 'download') { self::download($settings); }
             elseif ($command === 'recovery') { self::recovery($settings); }
             else { throw new \RuntimeException('不明な操作です。'); }
@@ -118,7 +136,13 @@ final class LiveAdmin
             // schedule owns its schedule.lock -> operation.lock ordering; do not acquire in the reverse order.
             if (in_array($command, ['save', 'privacy', 'rules', 'retention', 'sharing', 'test', 'issue', 'confirm'], true)) { LiveBackup::withSettingsLock($dispatch); }
             else { $dispatch(); }
-        } catch (\Throwable $error) { self::notice('エラー: ' . mb_substr($error->getMessage(), 0, 600)); }
+        } catch (\Throwable $error) { $notice = 'エラー: ' . mb_substr($error->getMessage(), 0, 600); }
+        if ($notice !== '') {
+            $token = bin2hex(random_bytes(16));
+            if (set_transient(self::operationNoticeKey($token), $notice, 5 * MINUTE_IN_SECONDS)) {
+                $query['wrb_notice'] = $token;
+            }
+        }
         wp_safe_redirect(add_query_arg($query, self::url(self::view())), 303); exit;
     }
 
@@ -128,6 +152,18 @@ final class LiveAdmin
         check_ajax_referer('wrb_live', 'nonce');
         try {
             $command = self::post('command', 10);
+            if ($command === 'history') {
+                try {
+                    wp_cache_delete('wrb_live_operation', 'options');
+                    $state = get_option('wrb_live_operation', null);
+                    $notice = self::historyNotice(self::history(), is_array($state) ? $state : null);
+                } catch (\Throwable $error) {
+                    wp_send_json_error(['message' => '実行履歴を読み込めませんでした。バックアップの作業領域を確認してください。'], 503);
+                    return;
+                }
+                wp_send_json_success($notice);
+                return;
+            }
             if ($command === 'media') {
                 wp_send_json_success((new LiveMediaAudit())->step(self::post('run', 32), self::post('restart', 1) === '1'));
                 return;
@@ -232,7 +268,19 @@ final class LiveAdmin
 
     private static function post(string $key, int $max): string { $value = $_POST[$key] ?? ''; if (!is_string($value) || strlen($value) > $max * 2) { throw new \RuntimeException('入力を確認してください。'); } $value = wp_unslash($value); if (strlen($value) > $max || str_contains($value, "\0")) { throw new \RuntimeException('入力を確認してください。'); } return $value; }
     private static function authorize(): void { if (!current_user_can('manage_options')) { wp_die('この操作を行う権限がありません。', '', ['response' => 403]); } }
-    private static function notice(string $message): void { update_option('wrb_live_notice', $message, false); }
+    public static function takeOperationNotice(): string
+    {
+        $token = $_GET['wrb_notice'] ?? '';
+        if (!is_string($token) || !preg_match('/\A[a-f0-9]{32}\z/D', $token)) { return ''; }
+        $key = self::operationNoticeKey($token);
+        $message = get_transient($key);
+        return is_string($message) && delete_transient($key) ? $message : '';
+    }
+
+    private static function operationNoticeKey(string $token): string
+    {
+        return 'wrb_live_notice_' . get_current_user_id() . '_' . $token;
+    }
     public static function form(string $command, array $fields = []): void { $fields += ['wrb_view' => self::view(), 'wrb_admin_base' => self::adminBase()]; echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '"><input type="hidden" name="action" value="wrb_live"><input type="hidden" name="command" value="' . esc_attr($command) . '">'; wp_nonce_field('wrb_live', '_wrb_live_nonce', false); foreach ($fields as $name => $value) { echo '<input type="hidden" name="' . esc_attr($name) . '" value="' . esc_attr($value) . '">'; } }
     public static function input(string $name, string $label, string $value, int $length): void { echo '<p><label for="wrb-' . esc_attr($name) . '">' . esc_html($label) . '（必須）</label><br><input id="wrb-' . esc_attr($name) . '" name="' . esc_attr($name) . '" type="text" class="large-text code" required maxlength="' . $length . '" value="' . esc_attr($value) . '" autocomplete="off" spellcheck="false"></p>'; }
 }

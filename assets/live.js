@@ -22,6 +22,74 @@
         selector.addEventListener('change', update);
         update();
     });
+    const historyNotice = document.querySelector('[data-wrb-history-notice]');
+    const refreshHistoryNotice = historyNotice && window.wrbLive ? watchHistoryNotice(historyNotice) : null;
+    document.querySelector('[data-wrb-history-focus]')?.focus();
+    const historyTable = document.querySelector('.wrb-history-table');
+    historyTable?.addEventListener('click', event => {
+        if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey
+            || event.target.closest('a') || window.getSelection()?.toString()) return;
+        event.target.closest('[data-wrb-history-row]')?.querySelector('[data-wrb-run-link]')?.click();
+    });
+
+    function watchHistoryNotice(notice) {
+        const title = notice.querySelector('[data-wrb-history-title]');
+        const message = notice.querySelector('[data-wrb-history-message]');
+        const link = notice.querySelector('[data-wrb-history-link]');
+        const unavailable = document.querySelector('[data-wrb-history-unavailable]');
+        const announcement = document.querySelector('[data-wrb-history-announce]');
+        const outcomes = ['running', 'complete', 'failed', 'interrupted', 'skipped', 'cancelled'];
+        let timer, polling = false, expired = false;
+        function schedule(delay) {
+            clearTimeout(timer);
+            if (!expired && document.visibilityState !== 'hidden') timer = setTimeout(poll, delay);
+        }
+        async function poll() {
+            if (polling) return;
+            polling = true;
+            let delay = 30000;
+            try {
+                const body = new URLSearchParams({ action: 'wrb_live', command: 'history', nonce: wrbLive.nonce });
+                const response = await fetch(wrbLive.url, { method: 'POST', credentials: 'same-origin', body });
+                if (response.status === 403) expired = true;
+                if (!response.ok) throw new Error('history unavailable');
+                const result = await response.json();
+                if (!result.success) throw new Error('history unavailable');
+                const run = result.data ?? null;
+                if (run === null) {
+                    notice.hidden = true;
+                    notice.dataset.runId = '';
+                    notice.dataset.outcome = '';
+                } else {
+                    if (!/^[a-f0-9]{64}$/.test(run?.id) || !outcomes.includes(run.status)
+                        || typeof run.title !== 'string' || typeof run.message !== 'string') throw new Error('invalid history');
+                    const href = new URL(notice.dataset.historyUrl);
+                    href.searchParams.set('wrb_run', run.id);
+                    const changed = notice.dataset.runId !== run.id || notice.dataset.outcome !== run.status;
+                    notice.dataset.runId = run.id;
+                    notice.dataset.outcome = run.status;
+                    title.textContent = run.title;
+                    message.textContent = run.message;
+                    link.href = href.href;
+                    notice.hidden = false;
+                    if (changed) announcement.textContent = run.title + '。';
+                    if (run.status === 'running') delay = 5000;
+                }
+                unavailable.hidden = true;
+            } catch (_) {
+                unavailable.hidden = false;
+                if (expired) unavailable.textContent = '最新の実行履歴を確認するには画面を開き直してください。';
+                delay = 15000;
+            } finally {
+                polling = false;
+                schedule(delay);
+            }
+        }
+        document.addEventListener('visibilitychange', () => schedule(0));
+        schedule(notice.dataset.outcome === 'running' ? 5000 : 30000);
+        return () => schedule(0);
+    }
+
     const panel = document.getElementById('wrb-live-status');
     if (!panel || !window.wrbLive) return;
     const progressPanel = document.getElementById('wrb-progress');
@@ -370,6 +438,7 @@
         }
         setRunning(false);
         render(lastState, lastReach);
+        refreshHistoryNotice?.();
         schedule(lastReach.reachable ? 4000 : UNREACHABLE_DELAY);
     }
     buttons.forEach(button => { button.addEventListener('click', () => run(button.dataset.wrbCommand)); });
